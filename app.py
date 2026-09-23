@@ -41,20 +41,20 @@ st.markdown("""
         color: #10b981;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 1.5rem;
+        gap: 1.25rem;
     }
     .stTabs [data-baseweb="tab"] {
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 600;
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
+        padding-top: 0.4rem;
+        padding-bottom: 0.4rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 1. Target Polymarket Events (Frontier Releases & Best Model 2026)
+# 1. Target Polymarket Events Across All 3 Labs
 POLYMARKET_EVENTS = [
-    # Gemini Tier Contracts
+    # Google
     {"slug": "when-will-the-next-google-gemini-pro-model-be-released-20260817144359068", "entity": "Google", "label": "Gemini Pro"},
     {"slug": "next-google-gemini-pro-model-released-byptptpt", "entity": "Google", "label": "Gemini Pro Cumulative"},
     {"slug": "gemini-4pt0-released-by-june-30-2026", "entity": "Google", "label": "Gemini 4.0 Flash"},
@@ -63,8 +63,8 @@ POLYMARKET_EVENTS = [
     
     # Anthropic
     {"slug": "claude-6-released-byptptpt", "entity": "Anthropic", "label": "Claude 6"},
-    {"slug": "next-claude-sonnet-released-byptptpt-20260701203831153", "entity": "Anthropic", "label": "Claude Next Sonnet"},
-    {"slug": "next-claude-haiku-released-byptptpt-20260701205353326", "entity": "Anthropic", "label": "Claude Next Haiku"},
+    {"slug": "next-claude-sonnet-released-byptptpt-20260701203831153", "entity": "Anthropic", "label": "Next Claude Sonnet"},
+    {"slug": "next-claude-haiku-released-byptptpt-20260701205353326", "entity": "Anthropic", "label": "Next Claude Haiku"},
     {"slug": "next-fable-model-5pt2-released-byptptpt", "entity": "Anthropic", "label": "Claude Fable 5.2"},
     
     # OpenAI
@@ -72,25 +72,25 @@ POLYMARKET_EVENTS = [
     {"slug": "gpt-astra-6pt1-released-byptptpt", "entity": "OpenAI", "label": "GPT-Astra 6.1"},
     {"slug": "next-openai-gpt-terra-5pt7-released-byptptpt", "entity": "OpenAI", "label": "GPT-Terra 5.7"},
     
-    # Macro Crown
+    # Crown Market
     {"slug": "which-company-has-best-ai-model-end-of-2026", "entity": "Crown", "label": "Best Model End of 2026"}
 ]
 
-# 2. Top 10 High-Impact Metaculus Epistemic Benchmarks (AGI, LEV, and FIRE Economics)
+# 2. Top 10 Metaculus Epistemic Benchmarks
 METACULUS_BENCHMARKS = [
     {
         "id": 5121,
         "title": "Date of First Artificial General Intelligence (AGI)",
         "category": "AGI Timeline",
         "community_median": "May 2028",
-        "impact": "Triggers complete cognitive automation and begins the explosive software deflation cycle."
+        "impact": "Triggers complete cognitive automation and begins the exponential software deflation cycle."
     },
     {
         "id": 5122,
         "title": "Transition Time: Weak AGI to Superintelligence (ASI)",
         "category": "Superintelligence",
         "community_median": "29.4 Months",
-        "impact": "The critical compression window where human-speed scientific discovery transitions into recursive self-improvement."
+        "impact": "The critical compression window where human scientific progress transitions into recursive self-improvement."
     },
     {
         "id": 6592,
@@ -104,49 +104,49 @@ METACULUS_BENCHMARKS = [
         "title": "Will AGI Precede Longevity Escape Velocity?",
         "category": "Cross-Domain",
         "community_median": "95% Probability",
-        "impact": "Direct proof that solving intelligence is the necessary catalyst to solving biological senescence."
+        "impact": "Direct verification that solving high-dimensional reasoning is the prerequisite to curing biological senescence."
     },
     {
         "id": 26244,
         "title": "Radical Life Extension Demonstrated Within 5 Years Post-AGI",
         "category": "Biomedicine",
         "community_median": "60% Probability",
-        "impact": "Validates that high-dimensional AI reasoning will master cellular rejuvenation before the 2030s close."
+        "impact": "Validates that frontier AI architectures will master cellular rejuvenation before 2035."
     },
     {
         "id": 8357,
         "title": "100% Autonomous Software Engineering Replacement",
         "category": "FIRE & Capital",
         "community_median": "November 2027",
-        "impact": "Software marginal creation cost approaches zero, driving immense margin expansion for broad index capital (FIRE)."
+        "impact": "Marginal software creation cost approaches zero, accelerating margin expansion for broad index capital."
     },
     {
         "id": 9120,
         "title": "End-to-End AI Molecular Design & Therapeutic Synthesis",
         "category": "Biotech",
         "community_median": "March 2029",
-        "impact": "Novel FDA-approved drug candidates discovered, screened, and validated entirely in silico."
+        "impact": "Novel therapeutics discovered, simulated, and validated entirely in silico."
     },
     {
         "id": 7498,
         "title": "Global Real GDP Growth Exceeds 20% Annually",
         "category": "Macro Acceleration",
         "community_median": "2.3 Years Post-AGI",
-        "impact": "Historical economic paradigm shift: unconstrained cognitive labor compounds global output exponentially."
+        "impact": "The unconstrained labor inflection point where capital productivity decouples from human demographic limits."
     },
     {
         "id": 1002,
         "title": "First Human Reaching 150th Birthday",
         "category": "Healthspan",
         "community_median": "Born ~1995-2015",
-        "impact": "Individuals alive today under 40 hold non-trivial actuarial odds of living past 150 under early LEV."
+        "impact": "Cohorts under 40 hold non-trivial actuarial odds of reaching age 150 under early LEV."
     },
     {
         "id": 11452,
         "title": "First Major Economy Implements Universal Capital Dividend",
         "category": "FIRE & Policy",
         "community_median": "August 2031",
-        "impact": "Sovereign dividend distribution to offset AI labor disruption, guaranteeing baseline living standards."
+        "impact": "Sovereign dividend distribution to offset labor disruption, securing baseline societal living standards."
     }
 ]
 
@@ -216,7 +216,6 @@ def compute_macro_horizon():
 
     client = genai.Client(api_key=api_key)
 
-    # Construct complete ~40 calendar day range
     start_date = date(2026, 9, 23)
     end_date = date(2026, 10, 31)
     calendar_entries = []
@@ -230,30 +229,39 @@ def compute_macro_horizon():
     calendar_entries.append({"date": "no release before october 31", "weekday": "N/A"})
 
     prompt = f"""
-    You are an expert quantitative forecaster and Bayesian statistician.
-    Today's Date: September 23, 2026.
+    You are an expert quantitative forecaster and Bayesian modeler.
+    Current Date: September 23, 2026.
 
-    RAW POLYMARKET MARKET DATA:
+    LIVE POLYMARKET MARKET DATA:
     {json.dumps(poly_data, indent=2)}
 
-    CALENDAR TO ESTIMATE (40 ENTRIES):
+    CALENDAR LIST (40 ENTRIES):
     {json.dumps(calendar_entries, indent=2)}
 
-    MANDATORY TASKS:
-    1. MODEL DAILY DENSITY FUNCTIONS FOR THREE GEMINI TIERS:
-       - Gemini Pro: Anchored by $1.34M cumulative market and $70k weekly market. Peak single release day in October 13-17.
-       - Gemini Flash (3.9+ / 4.0): Earlier ramp than Pro, peaking around October 6-10.
-       - Gemini Flash-Lite (3.6+): Distillation with broad early distribution, peaking in early October (e.g. Oct 2-6).
-       - Create natural, continuous bell curves. Midweek days (Tue-Thu) crest, weekends dip to ~0.5%.
-       - Calculate discrete percentages for EVERY calendar entry so they sum to 100%.
+    REQUIRED TASKS:
+    1. MODEL CONTINUOUS DAILY DISTRIBUTIONS FOR ALL 9 TARGET MODELS ACROSS 3 LABS:
+       A. GOOGLE:
+          - gemini_pro: High-volume anchor ($1.34M cumulative market). Peaks midweek in the October 13-17 window.
+          - gemini_flash: Faster rollout, peaking earlier around October 6-10.
+          - gemini_flash_lite: Distillation of 3.6, broad early distribution peaking early October (Oct 2-6).
+       B. ANTHROPIC:
+          - claude_sonnet: High expectation for imminent drop, heavy weight in late September / early October (Sept 29 - Oct 3).
+          - claude_haiku: Fast follow, peaks early-to-mid October (Oct 5-9).
+          - claude_6: Next-generation frontier flagship, later density peaking late October (Oct 22-28) or into tail.
+       C. OPENAI:
+          - gpt_terra: Mid-tier checkpoint, peaks early October (Oct 7-12).
+          - gpt_astra: Autonomous reasoning tier, peaks mid-to-late October (Oct 15-20).
+          - gpt_7: True frontier architectural leap, low probability before end of October, heavy tail distribution.
 
-    2. MAP THE LAB PIPELINE & BEST AI 2026 STANDINGS:
-       - Project release windows for Claude 6, Next Sonnet, Next Haiku, Fable 5.2, GPT-7, GPT-Astra 6.1, GPT-Terra 5.7.
-       - Extract standings for 'Which company has best AI model end of 2026' (Anthropic, OpenAI, Google).
+    2. CURVE SHAPING:
+       - No flat horizontal plateaus.
+       - Natural midweek crests (Tuesday to Thursday), tapering Fridays, and 0.4% to 0.8% baseline weekend floors.
+       - Each model must have its own distinct 'most_likely_date'.
 
-    3. STRATEGIC METRICS:
-       - fire_deflation_score (1-100): Rate of cognitive automation accelerating passive capital compounding.
-       - lev_acceleration_score (1-100): Proximity of frontier reasoning jumps to biological escape velocity.
+    3. EXECUTIVE METRICS & STANDINGS:
+       - fire_deflation_score (1-100) and lev_acceleration_score (1-100).
+       - Standings for 'Which company has best AI model end of 2026' (Anthropic, OpenAI, Google).
+       - 2-sentence synthesis linking Q4 cluster releases to capital compounding and longevity.
 
     Return STRICT JSON ONLY with this schema:
     {{
@@ -264,25 +272,34 @@ def compute_macro_horizon():
         "champion_odds_pct": 68.0
       }},
       "most_likely_dates": {{
-        "flash_lite": {{"date": "YYYY-MM-DD", "probability": 0.0}},
-        "flash": {{"date": "YYYY-MM-DD", "probability": 0.0}},
-        "pro": {{"date": "YYYY-MM-DD", "probability": 0.0}}
+        "google": {{
+          "gemini_flash_lite": {{"date": "YYYY-MM-DD", "probability": 0.0}},
+          "gemini_flash": {{"date": "YYYY-MM-DD", "probability": 0.0}},
+          "gemini_pro": {{"date": "YYYY-MM-DD", "probability": 0.0}}
+        }},
+        "anthropic": {{
+          "claude_sonnet": {{"date": "YYYY-MM-DD", "probability": 0.0}},
+          "claude_haiku": {{"date": "YYYY-MM-DD", "probability": 0.0}},
+          "claude_6": {{"date": "YYYY-MM-DD", "probability": 0.0}}
+        }},
+        "openai": {{
+          "gpt_terra": {{"date": "YYYY-MM-DD", "probability": 0.0}},
+          "gpt_astra": {{"date": "YYYY-MM-DD", "probability": 0.0}},
+          "gpt_7": {{"date": "YYYY-MM-DD", "probability": 0.0}}
+        }}
       }},
       "daily_distributions": [
         {{
           "date": "YYYY-MM-DD or no release before october 31",
-          "flash_lite_pct": 0.0,
-          "flash_pct": 0.0,
-          "pro_pct": 0.0
-        }}
-      ],
-      "model_pipeline": [
-        {{
-          "entity": "Anthropic | OpenAI | Google",
-          "model": "Model Name",
-          "projected_window": "e.g. Mid-October 2026",
-          "confidence_pct": 75.0,
-          "strategic_impact": "Impact phrase"
+          "gemini_flash_lite": 0.0,
+          "gemini_flash": 0.0,
+          "gemini_pro": 0.0,
+          "claude_sonnet": 0.0,
+          "claude_haiku": 0.0,
+          "claude_6": 0.0,
+          "gpt_terra": 0.0,
+          "gpt_astra": 0.0,
+          "gpt_7": 0.0
         }}
       ],
       "best_ai_2026_standings": [
@@ -290,7 +307,7 @@ def compute_macro_horizon():
         {{"company": "OpenAI", "implied_pct": 22.0}},
         {{"company": "Google", "implied_pct": 10.0}}
       ],
-      "synthesis": "2 sentences synthesizing how the Q4 frontier release cluster accelerates FIRE and biological longevity."
+      "synthesis": "2 sentences synthesizing the competitive Q4 release convergence."
     }}
     """
 
@@ -323,37 +340,45 @@ def compute_macro_horizon():
         clean_text = response.text.replace("```json", "").replace("```", "").strip()
         result = json.loads(clean_text)
     except Exception as pe:
-        return {"error": f"JSON parsing failed: {str(pe)}. Output: {response.text[:200]}"}
+        return {"error": f"JSON parsing failed: {str(pe)}. Response snippet: {response.text[:200]}"}
 
-    # Strict Normalization across all 40 dates
+    # Strict Normalization across all 9 models (every model sums to exactly 100.00%)
+    model_keys = [
+        "gemini_flash_lite", "gemini_flash", "gemini_pro",
+        "claude_sonnet", "claude_haiku", "claude_6",
+        "gpt_terra", "gpt_astra", "gpt_7"
+    ]
+    
     distributions = result.get("daily_distributions", [])
     if distributions:
-        for key in ["flash_lite_pct", "flash_pct", "pro_pct"]:
-            total = sum(float(item.get(key, 0.0)) for item in distributions)
+        for k in model_keys:
+            total = sum(float(item.get(k, 0.0)) for item in distributions)
             if total > 0:
                 for item in distributions:
-                    item[key] = round((float(item.get(key, 0.0)) / total) * 100, 2)
-                diff = round(100.00 - sum(item[key] for item in distributions), 2)
-                distributions[-1][key] = round(distributions[-1][key] + diff, 2)
+                    item[k] = round((float(item.get(k, 0.0)) / total) * 100, 2)
+                diff = round(100.00 - sum(item[k] for item in distributions), 2)
+                distributions[-1][k] = round(distributions[-1][k] + diff, 2)
 
-    # Sanitize top metrics
-    for tier in ["flash_lite", "flash", "pro"]:
-        val = float(result.get("most_likely_dates", {}).get(tier, {}).get("probability", 0.0))
-        if 0.0 < val <= 1.0:
-            result["most_likely_dates"][tier]["probability"] = round(val * 100, 1)
-        else:
-            result["most_likely_dates"][tier]["probability"] = round(val, 1)
+    # Sanitize modal probability values
+    for lab in ["google", "anthropic", "openai"]:
+        lab_dict = result.get("most_likely_dates", {}).get(lab, {})
+        for m_name, m_info in lab_dict.items():
+            val = float(m_info.get("probability", 0.0))
+            if 0.0 < val <= 1.0:
+                m_info["probability"] = round(val * 100, 1)
+            else:
+                m_info["probability"] = round(val, 1)
 
     result["polymarket_raw"] = poly_data
     result["refreshed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
     return result
 
-# --- UI Layout ---
+# --- UI Execution ---
 
 st.title("🧬 Frontier AI & Longevity Horizon")
-st.caption("Live prediction market synthesis mapping intelligence acceleration to FIRE and Longevity Escape Velocity.")
+st.caption("Live multi-lab prediction market synthesis mapping intelligence acceleration to FIRE and Longevity Escape Velocity.")
 
-with st.spinner("Processing live order books and computing mathematical distributions..."):
+with st.spinner("Processing live order books and computing mathematical distributions across all 3 labs..."):
     data = compute_macro_horizon()
 
 if "error" in data:
@@ -402,105 +427,147 @@ with col4:
 
 st.info(data.get("synthesis", ""))
 
-# 2. Main Interface Tabs
+# 2. Main Navigation Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
-    "⚡ Daily Release Radar", 
-    "🚀 Frontier Pipeline & 2026 Crown", 
+    "⚡ Daily Release Radars", 
+    "🚀 Frontier Landscape & 2026 Crown", 
     "⏳ Metaculus Epistemic Horizon", 
     "🔍 Raw Order Books"
 ])
 
-# --- TAB 1: Detailed Daily Release Radar ---
+# --- TAB 1: Daily Release Radars Across All 3 Labs ---
 with tab1:
-    st.subheader("🎯 Most Likely Single Release Day by Tier")
-    c1, c2, c3 = st.columns(3)
+    df_all = pd.DataFrame(data["daily_distributions"])
     
-    m_lite = data["most_likely_dates"]["flash_lite"]
-    m_flash = data["most_likely_dates"]["flash"]
-    m_pro = data["most_likely_dates"]["pro"]
+    # Sub-tabs for clean mobile view
+    lab_tab_google, lab_tab_anthropic, lab_tab_openai = st.tabs([
+        "🔵 Google (Gemini)", 
+        "🟠 Anthropic (Claude)", 
+        "🟢 OpenAI (GPT)"
+    ])
     
-    with c1:
-        st.metric("Gemini Flash-Lite (3.6+)", m_lite["date"], f"{m_lite['probability']}% Peak Mass")
-    with c2:
-        st.metric("Gemini Flash (3.9+ / 4.0)", m_flash["date"], f"{m_flash['probability']}% Peak Mass")
-    with c3:
-        st.metric("Gemini Pro", m_pro["date"], f"{m_pro['probability']}% Peak Mass")
+    # --- GOOGLE RADAR ---
+    with lab_tab_google:
+        st.subheader("Google DeepMind · Implied Release Windows")
+        g_dates = data["most_likely_dates"]["google"]
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Gemini Flash-Lite (3.6+)", g_dates["gemini_flash_lite"]["date"], f"{g_dates['gemini_flash_lite']['probability']}% Peak Mass")
+        with c2:
+            st.metric("Gemini Flash (3.9+ / 4.0)", g_dates["gemini_flash"]["date"], f"{g_dates['gemini_flash']['probability']}% Peak Mass")
+        with c3:
+            st.metric("Gemini Pro", g_dates["gemini_pro"]["date"], f"{g_dates['gemini_pro']['probability']}% Peak Mass")
+            
+        fig_g = go.Figure()
+        fig_g.add_trace(go.Scatter(x=df_all["date"], y=df_all["gemini_flash_lite"], mode="lines+markers", name="Flash-Lite (3.6+)", line=dict(color="#38bdf8", width=2.5)))
+        fig_g.add_trace(go.Scatter(x=df_all["date"], y=df_all["gemini_flash"], mode="lines+markers", name="Flash (3.9+ / 4.0)", line=dict(color="#34d399", width=2.5)))
+        fig_g.add_trace(go.Scatter(x=df_all["date"], y=df_all["gemini_pro"], mode="lines+markers", name="Gemini Pro", line=dict(color="#f43f5e", width=2.5)))
+        fig_g.update_layout(
+            template="plotly_dark",
+            xaxis_title="Date",
+            yaxis_title="Probability Density (%)",
+            hovermode="x unified",
+            margin=dict(l=20, r=20, t=20, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_g, use_container_width=True)
+        
+        st.caption(f"Strict Normalization Checksum: Flash-Lite: {df_all['gemini_flash_lite'].sum():.2f}% | Flash: {df_all['gemini_flash'].sum():.2f}% | Pro: {df_all['gemini_pro'].sum():.2f}%")
+        st.dataframe(df_all[["date", "gemini_flash_lite", "gemini_flash", "gemini_pro"]].rename(columns={
+            "date": "Calendar Date",
+            "gemini_flash_lite": "Flash-Lite (%)",
+            "gemini_flash": "Flash (%)",
+            "gemini_pro": "Pro (%)"
+        }), use_container_width=True, height=360)
 
-    st.subheader("📈 Probability Density Functions (Daily Mass Across ~40 Days)")
-    df = pd.DataFrame(data["daily_distributions"])
+    # --- ANTHROPIC RADAR ---
+    with lab_tab_anthropic:
+        st.subheader("Anthropic · Implied Release Windows")
+        a_dates = data["most_likely_dates"]["anthropic"]
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Next Claude Sonnet", a_dates["claude_sonnet"]["date"], f"{a_dates['claude_sonnet']['probability']}% Peak Mass")
+        with c2:
+            st.metric("Next Claude Haiku", a_dates["claude_haiku"]["date"], f"{a_dates['claude_haiku']['probability']}% Peak Mass")
+        with c3:
+            st.metric("Claude 6", a_dates["claude_6"]["date"], f"{a_dates['claude_6']['probability']}% Peak Mass")
+            
+        fig_a = go.Figure()
+        fig_a.add_trace(go.Scatter(x=df_all["date"], y=df_all["claude_sonnet"], mode="lines+markers", name="Next Sonnet", line=dict(color="#f59e0b", width=2.5)))
+        fig_a.add_trace(go.Scatter(x=df_all["date"], y=df_all["claude_haiku"], mode="lines+markers", name="Next Haiku", line=dict(color="#fb923c", width=2.5)))
+        fig_a.add_trace(go.Scatter(x=df_all["date"], y=df_all["claude_6"], mode="lines+markers", name="Claude 6", line=dict(color="#c084fc", width=2.5)))
+        fig_a.update_layout(
+            template="plotly_dark",
+            xaxis_title="Date",
+            yaxis_title="Probability Density (%)",
+            hovermode="x unified",
+            margin=dict(l=20, r=20, t=20, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_a, use_container_width=True)
+        
+        st.caption(f"Strict Normalization Checksum: Sonnet: {df_all['claude_sonnet'].sum():.2f}% | Haiku: {df_all['claude_haiku'].sum():.2f}% | Claude 6: {df_all['claude_6'].sum():.2f}%")
+        st.dataframe(df_all[["date", "claude_sonnet", "claude_haiku", "claude_6"]].rename(columns={
+            "date": "Calendar Date",
+            "claude_sonnet": "Next Sonnet (%)",
+            "claude_haiku": "Next Haiku (%)",
+            "claude_6": "Claude 6 (%)"
+        }), use_container_width=True, height=360)
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["date"], y=df["flash_lite_pct"], mode="lines+markers", name="Flash-Lite (3.6+)", line=dict(color="#38bdf8", width=2.5)))
-    fig.add_trace(go.Scatter(x=df["date"], y=df["flash_pct"], mode="lines+markers", name="Flash (3.9+ / 4.0)", line=dict(color="#34d399", width=2.5)))
-    fig.add_trace(go.Scatter(x=df["date"], y=df["pro_pct"], mode="lines+markers", name="Pro", line=dict(color="#f43f5e", width=2.5)))
+    # --- OPENAI RADAR ---
+    with lab_tab_openai:
+        st.subheader("OpenAI · Implied Release Windows")
+        o_dates = data["most_likely_dates"]["openai"]
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("GPT-Terra 5.7", o_dates["gpt_terra"]["date"], f"{o_dates['gpt_terra']['probability']}% Peak Mass")
+        with c2:
+            st.metric("GPT-Astra 6.1", o_dates["gpt_astra"]["date"], f"{o_dates['gpt_astra']['probability']}% Peak Mass")
+        with c3:
+            st.metric("GPT-7", o_dates["gpt_7"]["date"], f"{o_dates['gpt_7']['probability']}% Peak Mass")
+            
+        fig_o = go.Figure()
+        fig_o.add_trace(go.Scatter(x=df_all["date"], y=df_all["gpt_terra"], mode="lines+markers", name="GPT-Terra 5.7", line=dict(color="#10b981", width=2.5)))
+        fig_o.add_trace(go.Scatter(x=df_all["date"], y=df_all["gpt_astra"], mode="lines+markers", name="GPT-Astra 6.1", line=dict(color="#06b6d4", width=2.5)))
+        fig_o.add_trace(go.Scatter(x=df_all["date"], y=df_all["gpt_7"], mode="lines+markers", name="GPT-7", line=dict(color="#ec4899", width=2.5)))
+        fig_o.update_layout(
+            template="plotly_dark",
+            xaxis_title="Date",
+            yaxis_title="Probability Density (%)",
+            hovermode="x unified",
+            margin=dict(l=20, r=20, t=20, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_o, use_container_width=True)
+        
+        st.caption(f"Strict Normalization Checksum: Terra: {df_all['gpt_terra'].sum():.2f}% | Astra: {df_all['gpt_astra'].sum():.2f}% | GPT-7: {df_all['gpt_7'].sum():.2f}%")
+        st.dataframe(df_all[["date", "gpt_terra", "gpt_astra", "gpt_7"]].rename(columns={
+            "date": "Calendar Date",
+            "gpt_terra": "GPT-Terra (%)",
+            "gpt_astra": "GPT-Astra (%)",
+            "gpt_7": "GPT-7 (%)"
+        }), use_container_width=True, height=360)
 
-    fig.update_layout(
-        template="plotly_dark",
-        xaxis_title="Date",
-        yaxis_title="Probability Density (%)",
-        hovermode="x unified",
-        margin=dict(l=20, r=20, t=20, b=20),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("📋 Discrete Calendar Probability Breakdown (~40 Days)")
-    sum_lite = df["flash_lite_pct"].sum()
-    sum_flash = df["flash_pct"].sum()
-    sum_pro = df["pro_pct"].sum()
-    st.caption(f"Strict Normalization Checksums: Flash-Lite: {sum_lite:.2f}% | Flash: {sum_flash:.2f}% | Pro: {sum_pro:.2f}%")
-
-    styled_df = df.rename(columns={
-        "date": "Calendar Date",
-        "flash_lite_pct": "Flash-Lite (%)",
-        "flash_pct": "Flash (%)",
-        "pro_pct": "Pro (%)"
-    })
-    st.dataframe(styled_df, use_container_width=True, height=450)
-
-# --- TAB 2: Frontier Lab Pipeline & 2026 Crown ---
+# --- TAB 2: Frontier Landscape & 2026 Crown ---
 with tab2:
-    st.subheader("Anthropic, OpenAI & Google Release Cadence")
-    pipeline = data.get("model_pipeline", [])
+    st.subheader("Q4 Frontier Release Windows & 2026 Crown Consensus")
+    col_summary, col_pie = st.columns([3, 2])
     
-    col_pipe, col_crown = st.columns([3, 2])
-    
-    with col_pipe:
-        if pipeline:
-            df_pipe = pd.DataFrame(pipeline)
-            color_map = {"Anthropic": "#f59e0b", "OpenAI": "#10b981", "Google": "#38bdf8"}
-            
-            fig_pipe = go.Figure()
-            for idx, row in df_pipe.iterrows():
-                c = color_map.get(row["entity"], "#a855f7")
-                fig_pipe.add_trace(go.Bar(
-                    x=[row["confidence_pct"]],
-                    y=[f"{row['entity']} · {row['model']}"],
-                    orientation='h',
-                    marker=dict(color=c),
-                    text=f"{row['projected_window']} ({row['confidence_pct']}%)",
-                    textposition='inside',
-                    hovertext=f"Strategic Impact: {row.get('strategic_impact', '')}",
-                    name=row["entity"],
-                    showlegend=False
-                ))
-            fig_pipe.update_layout(
-                template="plotly_dark",
-                xaxis_title="Market Confidence (%)",
-                margin=dict(l=20, r=20, t=20, b=20),
-                height=380
-            )
-            st.plotly_chart(fig_pipe, use_container_width=True)
-            
-            st.dataframe(df_pipe.rename(columns={
-                "entity": "Lab",
-                "model": "Model Designation",
-                "projected_window": "Expected Window",
-                "confidence_pct": "Confidence (%)",
-                "strategic_impact": "Capability Advance"
-            }), use_container_width=True)
+    with col_summary:
+        summary_rows = [
+            {"Lab": "Google", "Model": "Gemini Flash-Lite (3.6+)", "Window": data["most_likely_dates"]["google"]["gemini_flash_lite"]["date"], "Impact": "Distillation throughput"},
+            {"Lab": "Google", "Model": "Gemini Flash (3.9+ / 4.0)", "Window": data["most_likely_dates"]["google"]["gemini_flash"]["date"], "Impact": "Low-latency multimodal reasoning"},
+            {"Lab": "Google", "Model": "Gemini Pro", "Window": data["most_likely_dates"]["google"]["gemini_pro"]["date"], "Impact": "Frontier agentic coding & long context"},
+            {"Lab": "Anthropic", "Model": "Next Claude Sonnet", "Window": data["most_likely_dates"]["anthropic"]["claude_sonnet"]["date"], "Impact": "Autonomous software engineering standard"},
+            {"Lab": "Anthropic", "Model": "Next Claude Haiku", "Window": data["most_likely_dates"]["anthropic"]["claude_haiku"]["date"], "Impact": "Cost-efficient tool use execution"},
+            {"Lab": "Anthropic", "Model": "Claude 6", "Window": data["most_likely_dates"]["anthropic"]["claude_6"]["date"], "Impact": "Next-generation epistemic architecture"},
+            {"Lab": "OpenAI", "Model": "GPT-Terra 5.7", "Window": data["most_likely_dates"]["openai"]["gpt_terra"]["date"], "Impact": "Iterative developer workflow upgrade"},
+            {"Lab": "OpenAI", "Model": "GPT-Astra 6.1", "Window": data["most_likely_dates"]["openai"]["gpt_astra"]["date"], "Impact": "Continuous test-time compute & planning"},
+            {"Lab": "OpenAI", "Model": "GPT-7", "Window": data["most_likely_dates"]["openai"]["gpt_7"]["date"], "Impact": "Universal self-directed research agent"}
+        ]
+        st.dataframe(pd.DataFrame(summary_rows), use_container_width=True)
 
-    with col_crown:
+    with col_pie:
         st.subheader("Which Company Has Best Model End of 2026?")
         standings = data.get("best_ai_2026_standings", [])
         if standings:
@@ -513,17 +580,17 @@ with tab2:
             )])
             fig_pie.update_layout(
                 template="plotly_dark",
-                margin=dict(l=20, r=20, t=20, b=20),
-                height=320,
-                legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5)
+                margin=dict(l=10, r=10, t=10, b=10),
+                height=300,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
             )
             st.plotly_chart(fig_pie, use_container_width=True)
-            st.caption("Resolves via Arena.ai Blind Text Leaderboard & Artificial Analysis index at midnight Dec 31, 2026.")
+            st.caption("Resolves via Arena.ai Blind Leaderboard & Artificial Analysis index at midnight Dec 31, 2026.")
 
 # --- TAB 3: Metaculus Epistemic Horizon (Top 10 Benchmark Questions) ---
 with tab3:
     st.subheader("⏳ Top 10 Epistemic Benchmarks: AGI, Longevity & FIRE Economics")
-    st.caption("Aggregated superforecaster medians unpolluted by thin retail trading liquidity.")
+    st.caption("Aggregated superforecaster medians unpolluted by retail betting illiquidity.")
     
     meta_cols = st.columns(2)
     for idx, item in enumerate(METACULUS_BENCHMARKS):
