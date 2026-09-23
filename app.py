@@ -105,10 +105,26 @@ def compute_distributions():
     }}
     """
 
-    # Primary model suggested directly by the API response, with safe fallbacks
-    models_to_try = ["gemini-3.6-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    # Dynamic model discovery: Query Google AI Studio for active models on this key
+    models_to_try = ["gemini-3-flash-preview", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
+    try:
+        discovered = []
+        for m in client.models.list():
+            actions = getattr(m, "supported_actions", []) or []
+            if not actions or "generateContent" in actions:
+                clean_name = m.name.replace("models/", "")
+                discovered.append(clean_name)
+        
+        # Prioritize flash text models
+        flash_discovered = [m for m in discovered if "flash" in m and "image" not in m]
+        if flash_discovered:
+            models_to_try = flash_discovered + models_to_try
+    except Exception:
+        pass
+
     response = None
     last_err = None
+    active_model_used = None
 
     for model_name in models_to_try:
         try:
@@ -117,13 +133,14 @@ def compute_distributions():
                 contents=prompt
             )
             if response and response.text:
+                active_model_used = model_name
                 break
         except Exception as e:
             last_err = e
             continue
 
     if not response or not response.text:
-        return {"error": f"API call failed on all models. Details: {str(last_err)}"}
+        return {"error": f"API call failed across models {models_to_try}. Details: {str(last_err)}"}
 
     try:
         clean_text = response.text.replace("```json", "").replace("```", "").strip()
@@ -133,6 +150,7 @@ def compute_distributions():
 
     result["refreshed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
     result["raw_markets"] = raw_market_data
+    result["model_used"] = active_model_used
     return result
 
 st.title("⚡ Next-Gen Gemini Release Distribution Engine")
@@ -196,7 +214,7 @@ styled_df = df.rename(columns={
 })
 st.dataframe(styled_df, use_container_width=True, height=500)
 
-st.caption(f"Last updated: {data['refreshed_at']}")
+st.caption(f"Engine: {data.get('model_used', 'Gemini Free')} | Last updated: {data['refreshed_at']}")
 if st.button("Force Immediate Refresh"):
     st.cache_data.clear()
     st.rerun()
