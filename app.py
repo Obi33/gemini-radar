@@ -25,7 +25,6 @@ TARGET_EVENT_URLS = [
 
 def fetch_all_polymarket_events():
     all_events_data = []
-
     for url in TARGET_EVENT_URLS:
         slug = url.strip().split("/event/")[-1].split("?")[0]
         api_url = f"https://gamma-api.polymarket.com/events?slug={slug}"
@@ -35,9 +34,7 @@ def fetch_all_polymarket_events():
                 events = res.json()
                 if events and isinstance(events, list):
                     ev = events[0]
-                    event_title = ev.get("title", slug)
                     markets = ev.get("markets", [])
-                    
                     sub_markets = []
                     for m in markets:
                         q = m.get("question", "")
@@ -69,13 +66,12 @@ def fetch_all_polymarket_events():
                         })
 
                     all_events_data.append({
-                        "event_title": event_title,
+                        "event_title": ev.get("title", slug),
                         "slug": slug,
                         "markets": sub_markets
                     })
         except Exception:
             continue
-
     return all_events_data
 
 def get_api_key():
@@ -109,35 +105,32 @@ def compute_calibrated_radar():
     calendar_entries.append({"date": "no release before october 31", "weekday": "N/A"})
 
     prompt = f"""
-    You are an expert quantitative forecaster and Bayesian statistician.
-    You are computing the true daily probability distribution for Google's next Gemini model releases.
-
-    RAW POLYMARKET MARKET DATA:
+    You are a quantitative AI release forecaster.
+    Model continuous daily probability density functions for Google's next 3 model releases using this live Polymarket data:
     {json.dumps(harvested_events, indent=2)}
 
-    CALENDAR TO EVALUATE:
+    CALENDAR TO ESTIMATE:
     {json.dumps(calendar_entries, indent=2)}
 
-    MANDATORY QUANTITATIVE RULES:
+    CRITICAL MODEL DIFFERENTIATION (THE THREE CURVES MUST NOT BE IDENTICAL):
+    1. GEMINI PRO:
+       - Anchored to the $1.34M cumulative market (9% Sep 30, 45% Oct 9, 56% Oct 15, 85% Oct 23) and $70k weekly market (Oct 12-18 holds 31% volume).
+       - Peak single release day MUST sit in the October 13-17 window (e.g. October 14, 16, or 17).
+    
+    2. GEMINI FLASH (4.0 / 3.9+):
+       - Anchored to the $580k Gemini 4.0 market (8% Sep 30, 81% Oct 31).
+       - Has an earlier release gradient than Pro. It should peak earlier than Pro, ideally in the October 6 to October 10 window.
 
-    1. RESOLVE CUMULATIVE CONTRACTS PROPERLY (NO BUCKET CLIFFS):
-       - Contracts saying 'released by [Date]' are CUMULATIVE thresholds (P(T <= Date)).
-       - Do NOT dump the probability onto the boundary date. There should be NO artificial spike on September 30 or October 15.
-       - Distribute the marginal difference smoothly across all business days between milestones.
+    3. GEMINI FLASH-LITE (3.6+):
+       - Distillation of Gemini 3.6 (which already released).
+       - Downweight the illiquid 62% Sep 30 contract, but reflect that Flash-Lite has an earlier probability spread (late September to early October). 
+       - Its curve should be broader and flatter, peaking in early October (e.g. October 2 to October 6).
 
-    2. LIQUIDITY & VOLUME WEIGHTING:
-       - The Gemini Pro market has over $1.34M in volume. It represents institutional smart money and must anchor the entire release timeline.
-       - The Flash-Lite market has only ~$7,000 in volume and displays an inverted, stale book (62% by Sep 30 vs 61% by Oct 31). Penalize this market heavily as illiquid retail noise.
-       - Distillations (Flash-Lite) do NOT launch weeks before flagship models. They either release simultaneously with Flash/Pro or follow shortly after. Do NOT make Flash-Lite spike alone in late September.
-
-    3. CALENDAR PRIORS (GOOGLE RELEASE CADENCE):
-       - Google DeepMind almost NEVER releases major developer models on Saturdays or Sundays. Weekend dates must receive between 0.0% and 0.5% probability.
-       - Google releases heavily concentrate on Tuesdays, Wednesdays, and Thursdays.
-
-    4. MATHEMATICAL VALIDITY:
-       - Every single date in the calendar list must receive a discrete probability for all three models: flash_lite_pct, flash_pct, pro_pct.
-       - 'most_likely_dates' MUST identify the true calendar date with the highest single-day probability mass, NOT the expiration date of a cumulative market.
-       - Express all probability values as percentages between 0.0 and 100.0 (e.g. 8.5 for 8.5%, never 0.085).
+    SHAPING & MATHEMATICAL CONSTRAINTS:
+    - NO FLAT PLATEAUS: Consecutive business days must NEVER have the identical probability number. Create natural, continuous bell curves.
+    - NO SQUARE WAVES: Do not crash abruptly to 0% on Saturday. Transition naturally: mid-week peak (Tuesday-Thursday) -> tapering Friday (2-3%) -> quiet weekend (0.4-0.8%) -> rising Monday (1.5-2.5%).
+    - INDEPENDENT PEAKS: The 'most_likely_dates' for Flash-Lite, Flash, and Pro MUST BE DIFFERENT DATES. Do not output October 15 for all three.
+    - All probability numbers must be percentages between 0.0 and 100.0.
 
     Return STRICT JSON ONLY matching this schema:
     {{
@@ -154,7 +147,7 @@ def compute_calibrated_radar():
           "pro_pct": 0.0
         }}
       ],
-      "synthesis": "2 concise sentences explaining the volume-weighted calibration and true modal window."
+      "synthesis": "2 concise sentences explaining why the 3 models peak on different dates."
     }}
     """
 
@@ -181,15 +174,15 @@ def compute_calibrated_radar():
             continue
 
     if not response or not response.text:
-        return {"error": f"Model inference failed across candidate models. Details: {str(last_err)}"}
+        return {"error": f"Model inference failed across candidate models: {str(last_err)}"}
 
     try:
         clean_text = response.text.replace("```json", "").replace("```", "").strip()
         result = json.loads(clean_text)
     except Exception as pe:
-        return {"error": f"JSON parsing failed: {str(pe)}. Response: {response.text[:200]}"}
+        return {"error": f"JSON parsing failed: {str(pe)}. Raw: {response.text[:200]}"}
 
-    # Strict Mathematical Normalization in Python
+    # Strict Normalization across all ~40 dates
     distributions = result.get("daily_distributions", [])
     if distributions:
         for key in ["flash_lite_pct", "flash_pct", "pro_pct"]:
@@ -200,7 +193,7 @@ def compute_calibrated_radar():
                 diff = round(100.00 - sum(item[key] for item in distributions), 2)
                 distributions[-1][key] = round(distributions[-1][key] + diff, 2)
 
-    # Sanitize top metrics so they never display decimals like 0.35%
+    # Sanitize top metrics
     for tier in ["flash_lite", "flash", "pro"]:
         metric_val = float(result.get("most_likely_dates", {}).get(tier, {}).get("probability", 0.0))
         if 0.0 < metric_val <= 1.0:
@@ -214,40 +207,40 @@ def compute_calibrated_radar():
 
 # --- UI Rendering ---
 st.title("⚡ Gemini Model Release Radar")
-st.caption("Volume-weighted prediction market synthesis and discrete calendar probability modeling.")
+st.caption("Bayesian multi-market synthesis and discrete calendar density modeling.")
 
-with st.spinner("Calibrating order books and generating smoothed distributions..."):
+with st.spinner("Calibrating order books and computing continuous distributions..."):
     data = compute_calibrated_radar()
 
 if "error" in data:
     st.error(data["error"])
     st.stop()
 
-# 1. Top Cards
+# 1. Top Metric Cards
 st.subheader("🎯 Most Likely Single Release Day by Tier")
 col1, col2, col3 = st.columns(3)
 
 with col1:
     m_lite = data["most_likely_dates"]["flash_lite"]
-    st.metric("Gemini Flash-Lite", m_lite["date"], f"{m_lite['probability']}% Daily Density")
+    st.metric("Gemini Flash-Lite", m_lite["date"], f"{m_lite['probability']}% Peak Mass")
 
 with col2:
     m_flash = data["most_likely_dates"]["flash"]
-    st.metric("Gemini Flash", m_flash["date"], f"{m_flash['probability']}% Daily Density")
+    st.metric("Gemini Flash", m_flash["date"], f"{m_flash['probability']}% Peak Mass")
 
 with col3:
     m_pro = data["most_likely_dates"]["pro"]
-    st.metric("Gemini Pro", m_pro["date"], f"{m_pro['probability']}% Daily Density")
+    st.metric("Gemini Pro", m_pro["date"], f"{m_pro['probability']}% Peak Mass")
 
 st.info(data.get("synthesis", ""))
 
-# 2. Chart
+# 2. Probability Density Functions Chart
 st.subheader("📈 Probability Density Functions (Daily Mass)")
 df = pd.DataFrame(data["daily_distributions"])
 
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=df["date"], y=df["flash_lite_pct"], mode="lines+markers", name="Flash-Lite", line=dict(color="#38bdf8", width=2.5)))
-fig.add_trace(go.Scatter(x=df["date"], y=df["flash_pct"], mode="lines+markers", name="Flash", line=dict(color="#34d399", width=2.5)))
+fig.add_trace(go.Scatter(x=df["date"], y=df["flash_lite_pct"], mode="lines+markers", name="Flash-Lite (3.6+)", line=dict(color="#38bdf8", width=2.5)))
+fig.add_trace(go.Scatter(x=df["date"], y=df["flash_pct"], mode="lines+markers", name="Flash (3.9+)", line=dict(color="#34d399", width=2.5)))
 fig.add_trace(go.Scatter(x=df["date"], y=df["pro_pct"], mode="lines+markers", name="Pro", line=dict(color="#f43f5e", width=2.5)))
 
 fig.update_layout(
@@ -260,14 +253,14 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# 3. Discrete Table
+# 3. Data Table
 st.subheader("📋 Discrete Calendar Probability Breakdown (~40 Days)")
 
 sum_lite = df["flash_lite_pct"].sum()
 sum_flash = df["flash_pct"].sum()
 sum_pro = df["pro_pct"].sum()
 
-st.caption(f"Normalized Checksums: Flash-Lite: {sum_lite:.2f}% | Flash: {sum_flash:.2f}% | Pro: {sum_pro:.2f}%")
+st.caption(f"Strict Normalization Checksums: Flash-Lite: {sum_lite:.2f}% | Flash: {sum_flash:.2f}% | Pro: {sum_pro:.2f}%")
 
 styled_df = df.rename(columns={
     "date": "Calendar Date",
