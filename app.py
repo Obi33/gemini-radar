@@ -45,11 +45,16 @@ def fetch_polymarket_books():
             continue
     return gathered
 
+def get_api_key():
+    if "GEMINI_API_KEY" in st.secrets:
+        return st.secrets["GEMINI_API_KEY"]
+    return os.environ.get("GEMINI_API_KEY")
+
 @st.cache_data(ttl=3600)
 def compute_distributions():
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = get_api_key()
     if not api_key:
-        return {"error": "GEMINI_API_KEY environment variable not configured."}
+        return {"error": "GEMINI_API_KEY secret not found in Streamlit Secrets."}
 
     raw_market_data = fetch_polymarket_books()
     if not raw_market_data:
@@ -70,7 +75,7 @@ def compute_distributions():
     Context:
     - Today is late September 2026.
     - Google releases model tiers in phased cadences (Flash/Flash-Lite often accompany or lead Pro).
-    - Liquid cumulative/weekly markets carry the ground truth, while thin daily markets have illiquidity noise.
+    - Liquid cumulative and weekly markets carry ground truth; thin daily markets have illiquidity noise.
 
     Required Task:
     1. Calculate a calibrated discrete probability distribution for every single entry in this list:
@@ -100,13 +105,32 @@ def compute_distributions():
     }}
     """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
+    # Primary model suggested directly by the API response, with safe fallbacks
+    models_to_try = ["gemini-3.6-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    response = None
+    last_err = None
 
-    clean_text = response.text.replace("```json", "").replace("```", "").strip()
-    result = json.loads(clean_text)
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            if response and response.text:
+                break
+        except Exception as e:
+            last_err = e
+            continue
+
+    if not response or not response.text:
+        return {"error": f"API call failed on all models. Details: {str(last_err)}"}
+
+    try:
+        clean_text = response.text.replace("```json", "").replace("```", "").strip()
+        result = json.loads(clean_text)
+    except Exception as parse_err:
+        return {"error": f"JSON parsing failed: {str(parse_err)}. Raw model output: {response.text[:250]}"}
+
     result["refreshed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
     result["raw_markets"] = raw_market_data
     return result
@@ -162,7 +186,7 @@ sum_lite = df["flash_lite_pct"].sum()
 sum_flash = df["flash_pct"].sum()
 sum_pro = df["pro_pct"].sum()
 
-st.caption(f"Checksums — Flash-Lite: {sum_lite:.1f}% | Flash: {sum_flash:.1f}% | Pro: {sum_pro:.1f}%")
+st.caption(f"Checksums: Flash-Lite {sum_lite:.1f}% | Flash {sum_flash:.1f}% | Pro {sum_pro:.1f}%")
 
 styled_df = df.rename(columns={
     "date": "Date",
