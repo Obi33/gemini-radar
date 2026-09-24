@@ -4,7 +4,7 @@ import json
 import os
 import math
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, date, timedelta, timezone
@@ -220,7 +220,7 @@ def fetch_single_event(item):
     slug = item["slug"]
     base_url = "https://gamma-api.polymarket.com/events?slug="
     try:
-        res = requests.get(f"{base_url}{slug}", timeout=3.5)
+        res = requests.get(f"{base_url}{slug}", timeout=3.0)
         if res.status_code == 200:
             data = res.json()
             if data and isinstance(data, list):
@@ -277,43 +277,34 @@ def get_api_key():
         return st.secrets["GEMINI_API_KEY"]
     return os.environ.get("GEMINI_API_KEY")
 
-def execute_gemini_with_fallback(client, prompt):
-    # Try gemini-3.8-flash with a strict 10s timeout, then fall back immediately
+def call_gemini_worker(client, model_name, prompt):
+    config = types.GenerateContentConfig(response_mime_type="application/json")
+    resp = client.models.generate_content(
+        model=model_name,
+        contents=prompt,
+        config=config
+    )
+    if resp and resp.text:
+        return resp.text
+    return None
+
+def execute_gemini_guaranteed(client, prompt):
     candidate_models = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
     
-    config = types.GenerateContentConfig(
-        response_mime_type="application/json"
-    )
-    http_opts = types.HttpOptions(timeout=10000)
-
     for m in candidate_models:
         try:
-            if hasattr(client, "interactions"):
-                try:
-                    interaction = client.interactions.create(
-                        model=m,
-                        input=prompt
-                    )
-                    text = getattr(interaction, "output_text", None)
-                    if not text and hasattr(interaction, "outputs") and interaction.outputs:
-                        text = interaction.outputs[-1].text
-                    if text:
-                        return text, f"{m} (Interactions API)"
-                except Exception:
-                    pass
-
-            resp = client.models.generate_content(
-                model=m,
-                contents=prompt,
-                config=config,
-                http_options=http_opts
-            )
-            if resp and resp.text:
-                return resp.text, f"{m} (GenerateContent API)"
+            # Enforce strict 8-second thread execution deadline
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(call_gemini_worker, client, m, prompt)
+                result_text = future.result(timeout=8.0)
+                if result_text:
+                    return result_text, f"{m} (Google AI Studio)"
+        except TimeoutError:
+            continue
         except Exception:
             continue
 
-    return None, "Calibrated Baseline Engine (Offline Failsafe)"
+    return None, "Calibrated Baseline Engine (Fast Failsafe)"
 
 def build_discrete_density(peak_date_str, spread_days, tail_pct, start_d, end_d):
     try:
@@ -362,11 +353,11 @@ def execute_pipeline(progress_bar, status_text):
         progress_bar.progress(int(ratio * 35))
     poly_data = fetch_all_polymarket_parallel(update_poly_progress)
 
-    status_text.markdown("🧠 **[2/5] Synthesizing order books with Gemini Engine...**")
+    status_text.markdown("🧠 **[2/5] Synthesizing order books with Gemini Engine (8s Deadline)...**")
     progress_bar.progress(50)
 
     result = None
-    active_model = "Calibrated Baseline Engine (Offline Failsafe)"
+    active_model = "Calibrated Baseline Engine (Fast Failsafe)"
 
     if api_key:
         client = genai.Client(api_key=api_key)
@@ -437,7 +428,7 @@ def execute_pipeline(progress_bar, status_text):
           "synthesis": "The multi-lab release wave concentrates frontier reasoning in Q4 2026, pulling forward autonomous code generation and accelerating capital compounding inside tax-sheltered global equities."
         }}
         """
-        raw_text, detected_model = execute_gemini_with_fallback(client, prompt)
+        raw_text, detected_model = execute_gemini_guaranteed(client, prompt)
         if raw_text:
             try:
                 clean_text = raw_text.replace("```json", "").replace("```", "").strip()
@@ -575,7 +566,7 @@ with c3:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">Alan's AGI Countdown</div>
-        <div class="metric-value">{exec_m.get('alan_agi_pct', 99.0)}%</div>
+        <div class="metric-value">{exec_m.get('alan_agi_pct', 99.0)}% Achieved</div>
         <div class="metric-delta">Est. Completion: {exec_m.get('alan_agi_completion_date', '2026-12')}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -942,7 +933,7 @@ with tab5:
                 st.table(pd.DataFrame(ev["options"]))
 
 st.divider()
-st.caption(f"Engine: Google AI Studio ({data.get('active_model', 'gemini-3.8-flash')}) · Automated Cache: 60 Minutes · Last Calibrated: {data.get('refreshed_at_budapest', 'Budapest Time')}")
+st.caption(f"Engine: {data.get('active_model', 'Google AI Studio')} · Automated Cache: 60 Minutes · Last Calibrated: {data.get('refreshed_at_budapest', 'Budapest Time')}")
 if st.button("Force Synchronized Market Recalculation (Budapest Time)"):
     st.session_state.pop("macro_data", None)
     st.session_state.pop("macro_data_ts", None)
