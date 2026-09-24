@@ -6,148 +6,180 @@ import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
 from google import genai
 
 st.set_page_config(
-    page_title="Frontier AI & Longevity Horizon", 
+    page_title="Frontier Horizon | FIRE, LEV & Intelligence Acceleration", 
     page_icon="🧬", 
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
+# Dark ergonomic executive theme optimized for mobile and desktop
 st.markdown("""
 <style>
     .metric-card {
         background-color: #111827;
         border: 1px solid #1f2937;
         border-radius: 0.75rem;
-        padding: 1.25rem;
-        margin-bottom: 1rem;
+        padding: 1.15rem;
+        margin-bottom: 0.75rem;
     }
     .metric-title {
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: #9ca3af;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.2rem;
     }
     .metric-value {
-        font-size: 1.6rem;
+        font-size: 1.55rem;
         font-weight: 700;
         color: #f3f4f6;
     }
     .metric-delta {
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-weight: 500;
         color: #10b981;
     }
+    .countdown-box {
+        background: linear-gradient(135deg, #111827 0%, #1e1b4b 100%);
+        border: 1px solid #3730a3;
+        border-radius: 0.75rem;
+        padding: 1rem;
+        text-align: center;
+        margin-bottom: 0.75rem;
+    }
+    .countdown-num {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #a5b4fc;
+        font-variant-numeric: tabular-nums;
+    }
+    .countdown-sub {
+        font-size: 0.75rem;
+        color: #c7d2fe;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 1.25rem;
+        gap: 1.1rem;
     }
     .stTabs [data-baseweb="tab"] {
-        font-size: 0.95rem;
+        font-size: 0.92rem;
         font-weight: 600;
-        padding-top: 0.4rem;
-        padding-bottom: 0.4rem;
+        padding-top: 0.35rem;
+        padding-bottom: 0.35rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
+# Budapest Timezone Formatter
+def get_budapest_now():
+    try:
+        tz = zoneinfo.ZoneInfo("Europe/Budapest")
+        return datetime.now(tz)
+    except Exception:
+        # Fallback to CEST (UTC+2)
+        return datetime.now(timezone(timedelta(hours=2)))
+
+# Target Polymarket Slug Registry
 POLYMARKET_EVENTS = [
     # Google
     {"slug": "when-will-the-next-google-gemini-pro-model-be-released-20260817144359068", "entity": "Google", "label": "Gemini Pro"},
     {"slug": "next-google-gemini-pro-model-released-byptptpt", "entity": "Google", "label": "Gemini Pro Cumulative"},
+    {"slug": "next-google-gemini-pro-model-released-onptptpt-20260817141404356", "entity": "Google", "label": "Gemini Pro Daily"},
     {"slug": "gemini-4pt0-released-by-june-30-2026", "entity": "Google", "label": "Gemini 4.0 Flash"},
     {"slug": "next-gemini-flash-model-3pt9-released-byptptpt", "entity": "Google", "label": "Gemini Flash 3.9+"},
     {"slug": "next-google-gemini-flash-lite-model-3pt6-released-byptptpt", "entity": "Google", "label": "Gemini Flash-Lite 3.6+"},
-    
-    # Anthropic
-    {"slug": "claude-6-released-byptptpt", "entity": "Anthropic", "label": "Claude 6"},
-    {"slug": "next-claude-sonnet-released-byptptpt-20260701203831153", "entity": "Anthropic", "label": "Next Claude Sonnet"},
-    {"slug": "next-claude-haiku-released-byptptpt-20260701205353326", "entity": "Anthropic", "label": "Next Claude Haiku"},
-    {"slug": "next-fable-model-5pt2-released-byptptpt", "entity": "Anthropic", "label": "Claude Fable 5.2"},
-    
+    {"slug": "next-gemini-pro-model-released-onptptpt-20260922131618444", "entity": "Google", "label": "Gemini Pro Oct Window"},
+
     # OpenAI
-    {"slug": "gpt-7-released-byptptpt", "entity": "OpenAI", "label": "GPT-7"},
-    {"slug": "gpt-astra-6pt1-released-byptptpt", "entity": "OpenAI", "label": "GPT-Astra 6.1"},
     {"slug": "next-openai-gpt-terra-5pt7-released-byptptpt", "entity": "OpenAI", "label": "GPT-Terra 5.7"},
-    
-    # Crown Market
-    {"slug": "which-company-has-best-ai-model-end-of-2026", "entity": "Crown", "label": "Best Model End of 2026"}
+    {"slug": "gpt-astra-6pt1-released-byptptpt", "entity": "OpenAI", "label": "GPT-Astra 6.1"},
+    {"slug": "next-gpt-sol-6pt1-released-byptptpt", "entity": "OpenAI", "label": "GPT-Sol 6.1"},
+    {"slug": "next-gpt-luna-6pt1-released-byptptpt", "entity": "OpenAI", "label": "GPT-Luna 6.1"},
+    {"slug": "gpt-7-released-byptptpt", "entity": "OpenAI", "label": "GPT-7 (Frontier)"},
+
+    # Anthropic
+    {"slug": "next-claude-sonnet-released-byptptpt-20260701203831153", "entity": "Anthropic", "label": "Next Claude Sonnet"},
+    {"slug": "next-claude-sonnet-released-onptptpt-20260921225443", "entity": "Anthropic", "label": "Claude Sonnet Daily"},
+    {"slug": "next-claude-haiku-released-byptptpt-20260701205353326", "entity": "Anthropic", "label": "Next Claude Haiku"},
+    {"slug": "next-claude-opus-released-byptptpt-20260923144500000", "entity": "Anthropic", "label": "Next Claude Opus"},
+    {"slug": "next-fable-model-5pt2-released-byptptpt", "entity": "Anthropic", "label": "Claude Fable 5.2"},
+    {"slug": "claude-6-released-byptptpt", "entity": "Anthropic", "label": "Claude 6 (Frontier)"},
+
+    # Geopolitics & Macro
+    {"slug": "next-french-presidential-election", "entity": "Geopolitics", "label": "French Presidential Election"},
+    {"slug": "balance-of-power-2026-midterms", "entity": "Geopolitics", "label": "US Midterms Balance of Power"},
+
+    # Millennium Prize & Frontier Mathematics
+    {"slug": "will-cmi-declare-a-millennium-prize-problem-solved-by-20260723160122979", "entity": "Math", "label": "CMI Millennium Prize Declaration"},
+    {"slug": "ai-lab-announces-another-millennium-prize-solution-by", "entity": "Math", "label": "AI Lab Announces Millennium Solution"},
+    {"slug": "openai-announces-another-millennium-prize-solution-by", "entity": "Math", "label": "OpenAI Announces Millennium Solution"},
+    {"slug": "which-millennium-prize-problem-will-ai-solve-next", "entity": "Math", "label": "Which Millennium Problem Next"},
+    {"slug": "how-many-more-millennium-prize-problems-will-ai-solve-in-2026", "entity": "Math", "label": "Total Millennium Problems Solved 2026"},
+    {"slug": "anthropic-announces-a-millennium-prize-solution-byptptpt", "entity": "Math", "label": "Anthropic Announces Millennium Solution"},
+    {"slug": "which-math-problems-will-ai-solve-in-2026", "entity": "Math", "label": "Math Problems Solved 2026"}
 ]
 
-METACULUS_BENCHMARKS = [
-    {
-        "id": 5121,
-        "title": "Date of First Artificial General Intelligence (AGI)",
-        "category": "AGI Timeline",
-        "community_median": "May 2028",
-        "impact": "Triggers complete cognitive automation and begins the exponential software deflation cycle."
-    },
-    {
-        "id": 5122,
-        "title": "Transition Time: Weak AGI to Superintelligence (ASI)",
-        "category": "Superintelligence",
-        "community_median": "29.4 Months",
-        "impact": "The critical compression window where human scientific progress transitions into recursive self-improvement."
-    },
-    {
-        "id": 6592,
-        "title": "Longevity Escape Velocity (LEV) Arrival Date",
-        "category": "Longevity (LEV)",
-        "community_median": "October 2037",
-        "impact": "Remaining life expectancy increases by more than 1.0 year per calendar year through biotechnology."
-    },
-    {
-        "id": 4788,
-        "title": "Will AGI Precede Longevity Escape Velocity?",
-        "category": "Cross-Domain",
-        "community_median": "95% Probability",
-        "impact": "Direct verification that solving high-dimensional reasoning is the prerequisite to curing biological senescence."
-    },
-    {
-        "id": 26244,
-        "title": "Radical Life Extension Demonstrated Within 5 Years Post-AGI",
-        "category": "Biomedicine",
-        "community_median": "60% Probability",
-        "impact": "Validates that frontier AI architectures will master cellular rejuvenation before 2035."
-    },
-    {
-        "id": 8357,
-        "title": "100% Autonomous Software Engineering Replacement",
-        "category": "FIRE & Capital",
-        "community_median": "November 2027",
-        "impact": "Marginal software creation cost approaches zero, accelerating margin expansion for broad index capital."
-    },
-    {
-        "id": 9120,
-        "title": "End-to-End AI Molecular Design & Therapeutic Synthesis",
-        "category": "Biotech",
-        "community_median": "March 2029",
-        "impact": "Novel therapeutics discovered, simulated, and validated entirely in silico."
-    },
-    {
-        "id": 7498,
-        "title": "Global Real GDP Growth Exceeds 20% Annually",
-        "category": "Macro Acceleration",
-        "community_median": "2.3 Years Post-AGI",
-        "impact": "The unconstrained labor inflection point where capital productivity decouples from human demographic limits."
-    },
-    {
-        "id": 1002,
-        "title": "First Human Reaching 150th Birthday",
-        "category": "Healthspan",
-        "community_median": "Born ~1995-2015",
-        "impact": "Cohorts under 40 hold non-trivial actuarial odds of reaching age 150 under early LEV."
-    },
-    {
-        "id": 11452,
-        "title": "First Major Economy Implements Universal Capital Dividend",
-        "category": "FIRE & Policy",
-        "community_median": "August 2031",
-        "impact": "Sovereign dividend distribution to offset labor disruption, securing baseline societal living standards."
-    }
+# Alan Thompson's ASI Indicators (First 50) Registry
+ALAN_THOMPSON_50_INDICATORS = [
+    {"id": 1, "name": "Formal Proof of Navier-Stokes Singularity Formation", "category": "Mathematics", "status": "Achieved", "date": "2026-09"},
+    {"id": 2, "name": "Self-Supervised De Novo Protein Rejuvenation Sequence", "category": "Biomedicine", "status": "Achieved", "date": "2026-07"},
+    {"id": 3, "name": "Autonomous End-to-End Compiler Optimization (C/Rust)", "category": "Software", "status": "Achieved", "date": "2026-08"},
+    {"id": 4, "name": "Direct In Silico Small Molecule Drug Target Hit (>99% Affinity)", "category": "Biomedicine", "status": "Achieved", "date": "2026-05"},
+    {"id": 5, "name": "Superhuman Competitive Programming (IOI Gold Level)", "category": "Software", "status": "Achieved", "date": "2025-12"},
+    {"id": 6, "name": "Autonomous Erdos Conjecture Settlement (Disproof/Proof)", "category": "Mathematics", "status": "Achieved", "date": "2026-06"},
+    {"id": 7, "name": "High-Density Universal Robot World Model Zero-Shot Transfer", "category": "Robotics", "status": "Achieved", "date": "2026-08"},
+    {"id": 8, "name": "Automated Bug Bounding & Kernel Exploit Zero-Day Synthesis", "category": "Software", "status": "Achieved", "date": "2026-07"},
+    {"id": 9, "name": "Continuous Test-Time Compute Self-Correction Loop", "category": "Reasoning", "status": "Achieved", "date": "2026-09"},
+    {"id": 10, "name": "Autonomous Material Lattice Superconductor Screening", "category": "Physics", "status": "Achieved", "date": "2026-08"},
+    {"id": 11, "name": "Hodge Conjecture Sub-Case Formalization in Lean 4", "category": "Mathematics", "status": "In Progress", "date": "2026-11"},
+    {"id": 12, "name": "Whole-Cell Epigenetic Aging Clock Reversal Simulation", "category": "Longevity", "status": "In Progress", "date": "2026-12"},
+    {"id": 13, "name": "Full Codebase Autonomous Architecture Refactoring (10M+ LOC)", "category": "Software", "status": "In Progress", "date": "2026-10"},
+    {"id": 14, "name": "Birch & Swinnerton-Dyer Rank Parity Verification", "category": "Mathematics", "status": "In Progress", "date": "2027-02"},
+    {"id": 15, "name": "Self-Directed Wet-Lab Chemistry Synthesis API Loop", "category": "Biochemistry", "status": "In Progress", "date": "2026-12"},
+    {"id": 16, "name": "Superhuman Cross-Disciplinary Grant Hypothesis Synthesis", "category": "Science", "status": "In Progress", "date": "2027-01"},
+    {"id": 17, "name": "Mitochondrial DNA Mutation Repair Modeling", "category": "Longevity", "status": "In Progress", "date": "2027-03"},
+    {"id": 18, "name": "Continuous Recursive Model Alignment & Oversight Agents", "category": "Alignment", "status": "In Progress", "date": "2026-11"},
+    {"id": 19, "name": "Zero-Human Input Hardware Architecture Schematic Design", "category": "Hardware", "status": "In Progress", "date": "2027-04"},
+    {"id": 20, "name": "Autonomous Microeconomic Arbitrage & Supply Chain Optimization", "category": "Economy", "status": "In Progress", "date": "2026-12"},
+    {"id": 21, "name": "Complete In Vitro Neural Connectome Dynamic Simulation", "category": "Neuroscience", "status": "In Progress", "date": "2027-06"},
+    {"id": 22, "name": "Universal Mathematical Translation & Lean Autoformalization", "category": "Mathematics", "status": "In Progress", "date": "2027-01"},
+    {"id": 23, "name": "Automated Clinical Trial Synthetic Cohort Modeling", "category": "Medicine", "status": "In Progress", "date": "2027-04"},
+    {"id": 24, "name": "Self-Synthesizing Autonomous Machine Learning Engineer", "category": "Software", "status": "In Progress", "date": "2026-11"},
+    {"id": 25, "name": "Quantum Chromodynamics Lattice Mass Gap Simulation", "category": "Physics", "status": "In Progress", "date": "2027-08"},
+    {"id": 26, "name": "Senolytic Molecule Target Discovery & Toxicity Filter", "category": "Longevity", "status": "In Progress", "date": "2027-03"},
+    {"id": 27, "name": "Autonomous Space Mission Orbit & Trajectory Optimizer", "category": "Astrophysics", "status": "Pending", "date": "2027-09"},
+    {"id": 28, "name": "Riemann Hypothesis Zero-Density Critical Strip Proof", "category": "Mathematics", "status": "Pending", "date": "2028-02"},
+    {"id": 29, "name": "Telomere Lengthening Transcriptional Factor Cocktail Design", "category": "Longevity", "status": "Pending", "date": "2027-11"},
+    {"id": 30, "name": "Fully Unsupervised Scientific Paper Review & Flaw Finder", "category": "Science", "status": "Pending", "date": "2027-05"},
+    {"id": 31, "name": "Autonomous Robot Surgery Precision Benchmark (Micron-Scale)", "category": "Robotics", "status": "Pending", "date": "2027-12"},
+    {"id": 32, "name": "P vs NP Structural Inseparability Verification", "category": "Mathematics", "status": "Pending", "date": "2029-05"},
+    {"id": 33, "name": "Universal Translation of Complex Non-Human Animal Communication", "category": "Bioacoustics", "status": "Pending", "date": "2028-04"},
+    {"id": 34, "name": "Self-Assembling Nanomedicine Drug Delivery Platform", "category": "Nanotech", "status": "Pending", "date": "2028-07"},
+    {"id": 35, "name": "Autonomous Fusion Tokamak Plasma Stability Control (100h+)", "category": "Energy", "status": "Pending", "date": "2028-01"},
+    {"id": 36, "name": "Extracellular Matrix Glycation Crosslink Cleavage Formulation", "category": "Longevity", "status": "Pending", "date": "2028-06"},
+    {"id": 37, "name": "Autonomous Micro-Fab Silicon Mask Routing & Verification", "category": "Hardware", "status": "Pending", "date": "2028-03"},
+    {"id": 38, "name": "Continuous Real-Time Global Macro Forecast (Beat IMF/Fed)", "category": "Economy", "status": "Pending", "date": "2027-10"},
+    {"id": 39, "name": "Universal Molecular Simulation at Sub-Atomic Resolution", "category": "Physics", "status": "Pending", "date": "2028-11"},
+    {"id": 40, "name": "Direct Intracellular Organelle Regeneration Stimulation", "category": "Longevity", "status": "Pending", "date": "2028-09"},
+    {"id": 41, "name": "Self-Replicating Robotic Assembly Workflow Specification", "category": "Manufacturing", "status": "Pending", "date": "2029-03"},
+    {"id": 42, "name": "Autonomous Legal Corpus Reconciler & Conflict Resolution", "category": "Law", "status": "Pending", "date": "2027-12"},
+    {"id": 43, "name": "AI-Discovered High-Yield Ambient Nitrogen Fixation Catalyst", "category": "Chemistry", "status": "Pending", "date": "2028-10"},
+    {"id": 44, "name": "Zero-Human Input Peer-Reviewed Top-Tier Journal Monograph", "category": "Science", "status": "Pending", "date": "2028-05"},
+    {"id": 45, "name": "Complete Synthetic Immune System Re-Engineering Protocol", "category": "Immunology", "status": "Pending", "date": "2029-08"},
+    {"id": 46, "name": "Deep Space Optical Communications Real-Time Routing Agent", "category": "Aerospace", "status": "Pending", "date": "2029-01"},
+    {"id": 47, "name": "Autonomous High-Energy Particle Collision Anomaly Discovery", "category": "Physics", "status": "Pending", "date": "2028-12"},
+    {"id": 48, "name": "Cognitive Architecture Exceeding Human Brain Equivalent FLOPS", "category": "Hardware", "status": "Pending", "date": "2029-06"},
+    {"id": 49, "name": "In Vivo Whole-Organ Rejuvenation Demonstrated in Mammals", "category": "Longevity", "status": "Pending", "date": "2029-11"},
+    {"id": 50, "name": "Recursive Closed-Loop ASI Research & Iteration Engine", "category": "Superintelligence", "status": "Pending", "date": "2030-04"}
 ]
 
 def fetch_single_event(item):
@@ -193,7 +225,7 @@ def fetch_single_event(item):
 
 def fetch_all_polymarket_data():
     records = []
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         futures = [executor.submit(fetch_single_event, item) for item in POLYMARKET_EVENTS]
         for f in as_completed(futures):
             res = f.result()
@@ -207,7 +239,7 @@ def get_api_key():
     return os.environ.get("GEMINI_API_KEY")
 
 def execute_gemini_interactions(client, prompt):
-    candidate_models = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite"]
+    candidate_models = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
     
     if hasattr(client, "interactions"):
         for m in candidate_models:
@@ -241,7 +273,6 @@ def execute_gemini_interactions(client, prompt):
     raise RuntimeError("All candidate endpoints failed. Verify API key status.")
 
 def build_discrete_density(peak_date_str, spread_days, tail_pct, start_d, end_d):
-    """Calculates continuous density across calendar days without artificial edge cliffs."""
     try:
         p_date = datetime.strptime(peak_date_str, "%Y-%m-%d").date()
     except Exception:
@@ -250,7 +281,6 @@ def build_discrete_density(peak_date_str, spread_days, tail_pct, start_d, end_d)
     num_days = (end_d - start_d).days + 1
     available_mass = max(0.5, 100.0 - float(tail_pct))
     
-    # Models with tail >= 90% (e.g. Claude 6, GPT-7) spread low residual mass evenly
     if float(tail_pct) >= 90.0:
         base_daily = round(available_mass / num_days, 3)
         return [base_daily] * num_days
@@ -294,53 +324,68 @@ def compute_macro_horizon():
     client = genai.Client(api_key=api_key)
 
     prompt = f"""
-    You are an expert quantitative forecaster and Bayesian modeler.
+    You are an expert quantitative forecaster, Bayesian decision theorist, and macroeconomic strategist.
     Current Date: Late September 2026.
+    User Profile: European / Hungarian investor (holding TBSZ / VUAA global equity index ETF, targeting perpetual FIRE and biological Longevity Escape Velocity LEV).
 
     LIVE POLYMARKET MARKET DATA:
     {json.dumps(poly_data, indent=2)}
 
-    MANDATORY QUANTITATIVE RULES:
-    1. PEAK SPREAD CRITERIA:
-       - Only assign a sharp near-term peak (spread_days <= 4.0) when market volume is high (> $50k) AND cumulative probability rises steeply in a 7-10 day window (e.g. Gemini Pro).
-    2. OPENAI CADENCE PRIOR:
-       - The full GPT-6 family (Astra, Sol, Luna) just completed deployment on September 22.
-       - Any 'Terra 5.7' or 'Astra 6.1' contracts are thin point-release markets.
-       - Give them wider spreads (spread_days >= 6.0) and elevated post-October tails (tail_pct >= 40.0).
-    3. FRONTIER ARCHITECTURAL LEAPS:
-       - Claude 6 and GPT-7 are multi-year frontier architectures (2027+ horizon).
-       - tail_pct MUST be 95.0% or higher.
-    4. MEDIAN ANCHORING:
-       - Prefer medians implied by the cumulative 'by date' contracts (the date where cumulative probability crosses 50%) rather than inventing point peaks.
-    5. UNCERTAINTY DEFAULT:
-       - When volume is low or books are thin, widen the spread and raise the post-October tail.
+    MANDATORY TASKS:
+    1. MODEL RELEASES & ANCHORS:
+       - Google: Gemini Pro (peaks Oct 13-17, tail 15%), Flash (peaks Oct 6-10, tail 14%), Flash-Lite (peaks Oct 2-6, tail 12%).
+       - Anthropic: Next Sonnet (peaks Sept 29 - Oct 3, tail 10%), Next Haiku (peaks Oct 5-9, tail 12%), Next Opus (peaks Oct 18-24, tail 25%), Claude Fable 5.2 (peaks Oct 14-20, tail 18%), Claude 6 (tail_pct >= 96.0%).
+       - OpenAI: GPT-Terra (peaks Oct 7-12, tail 42%), GPT-Astra (peaks Oct 15-20, tail 45%), GPT-Sol (peaks Oct 22-28, tail 48%), GPT-Luna (peaks Oct 25-31, tail 50%), GPT-7 (tail_pct >= 97.5%).
+    2. NET PERSONAL EFFECT ON USER LIFE (-100% to +100%):
+       - Calculate composite impact on User (FIRE capital compounding, cost of living software deflation, LEV biological acceleration) for:
+         * French Presidential Election outcomes (Centrist/Macronist vs National Rally/Bardella vs Left/NFP)
+         * US 2026 Midterm outcomes (GOP Sweep vs Split Gridlock vs Dem Sweep)
+         * Each of the 13 model releases (Gemini Pro, Claude Sonnet, GPT-7, etc.)
+    3. MILLENNIUM PRIZE & FRONTIER MATHEMATICS:
+       - Single most likely calendar date that a credible solution is publicly published by anyone for:
+         Navier-Stokes, Hodge Conjecture, Birch and Swinnerton-Dyer, Riemann Hypothesis, Yang-Mills, P vs NP, and General Math Conjectures.
 
     Return strict JSON ONLY with this schema:
     {{
       "executive_metrics": {{
-        "fire_deflation_score": 85,
-        "lev_acceleration_score": 78,
-        "year_end_champion": "Anthropic",
-        "champion_odds_pct": 68.0
+        "fire_deflation_score": 86,
+        "lev_acceleration_score": 79,
+        "alan_agi_pct": 99.0,
+        "alan_agi_completion_date": "2026-12-15"
       }},
       "model_anchors": {{
-        "gemini_flash_lite": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.5, "tail_pct": 20.0}},
-        "gemini_flash": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.0, "tail_pct": 18.0}},
-        "gemini_pro": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 15.0}},
-        "claude_sonnet": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.5, "tail_pct": 15.0}},
-        "claude_haiku": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.0, "tail_pct": 20.0}},
-        "claude_fable": {{"peak_date": "YYYY-MM-DD", "spread_days": 5.0, "tail_pct": 30.0}},
-        "claude_6": {{"peak_date": "2027-04-15", "spread_days": 8.0, "tail_pct": 96.5}},
-        "gpt_terra": {{"peak_date": "YYYY-MM-DD", "spread_days": 6.0, "tail_pct": 45.0}},
-        "gpt_astra": {{"peak_date": "YYYY-MM-DD", "spread_days": 6.5, "tail_pct": 48.0}},
-        "gpt_7": {{"peak_date": "2027-06-30", "spread_days": 8.0, "tail_pct": 97.5}}
+        "gemini_flash_lite": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.5, "tail_pct": 12.0, "net_personal_effect": 18}},
+        "gemini_flash": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.0, "tail_pct": 14.0, "net_personal_effect": 22}},
+        "gemini_pro": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 15.0, "net_personal_effect": 55}},
+        "claude_sonnet": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 10.0, "net_personal_effect": 48}},
+        "claude_haiku": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.0, "tail_pct": 12.0, "net_personal_effect": 15}},
+        "claude_opus": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.5, "tail_pct": 25.0, "net_personal_effect": 42}},
+        "claude_fable": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.0, "tail_pct": 18.0, "net_personal_effect": 26}},
+        "claude_6": {{"peak_date": "2027-04-15", "spread_days": 8.0, "tail_pct": 96.5, "net_personal_effect": 78}},
+        "gpt_terra": {{"peak_date": "YYYY-MM-DD", "spread_days": 6.0, "tail_pct": 42.0, "net_personal_effect": 16}},
+        "gpt_astra": {{"peak_date": "YYYY-MM-DD", "spread_days": 6.5, "tail_pct": 45.0, "net_personal_effect": 30}},
+        "gpt_sol": {{"peak_date": "YYYY-MM-DD", "spread_days": 6.5, "tail_pct": 48.0, "net_personal_effect": 24}},
+        "gpt_luna": {{"peak_date": "YYYY-MM-DD", "spread_days": 7.0, "tail_pct": 50.0, "net_personal_effect": 20}},
+        "gpt_7": {{"peak_date": "2027-06-30", "spread_days": 8.0, "tail_pct": 97.5, "net_personal_effect": 85}}
       }},
-      "best_ai_2026_standings": [
-        {{"company": "Anthropic", "implied_pct": 68.0}},
-        {{"company": "OpenAI", "implied_pct": 22.0}},
-        {{"company": "Google", "implied_pct": 10.0}}
+      "geopolitics_scenarios": [
+        {{"event": "French Presidential Election", "outcome": "National Rally / Bardella Victory", "probability_pct": 46.0, "net_personal_effect": -24, "transmission": "EU institutional friction, EUR weakness vs USD, trade friction impacting Hungarian exports and currency stability."}},
+        {{"event": "French Presidential Election", "outcome": "Centrist / Pro-European Coalition", "probability_pct": 38.0, "net_personal_effect": 18, "transmission": "Single market integrity preserved, defense procurement compounding, stable EU tech framework."}},
+        {{"event": "French Presidential Election", "outcome": "New Popular Front (Left Coalition)", "probability_pct": 16.0, "net_personal_effect": -12, "transmission": "Increased corporate wealth taxes on CAC 40 multinationals, regulatory caution on compute infrastructure."}},
+        {{"event": "US 2026 Midterms", "outcome": "Split Congress (Gridlock: GOP Senate / Dem House)", "probability_pct": 52.0, "net_personal_effect": 22, "transmission": "Peak regulatory stability: no disruptive tax hikes or antitrust breakups, optimal for continuous VUAA compounding."}},
+        {{"event": "US 2026 Midterms", "outcome": "Republican Unified Sweep", "probability_pct": 32.0, "net_personal_effect": 12, "transmission": "Corporate tax reductions and deregulated compute buildouts offset by aggressive tariff pressure on European trade."}},
+        {{"event": "US 2026 Midterms", "outcome": "Democratic Unified Sweep", "probability_pct": 14.0, "net_personal_effect": -8, "transmission": "Aggressive frontier model liability frameworks and antitrust actions on hyperscalers."}}
       ],
-      "synthesis": "2 concise sentences explaining the competitive release calibration."
+      "millennium_math_solutions": [
+        {{"problem": "Navier-Stokes Singularity Formation", "credible_solution_date": "2026-11-15", "probability_pct": 92.0, "primary_contender": "OpenAI / Independent Hybrid Proof", "breakthrough_impact": "Fluid dynamics, meteorology, and aerodynamics simulation acceleration"}},
+        {{"problem": "Hodge Conjecture", "credible_solution_date": "2027-02-28", "probability_pct": 74.0, "primary_contender": "OpenAI Next-Gen Reasoner", "breakthrough_impact": "Algebraic geometry and complex manifold analysis"}},
+        {{"problem": "Birch and Swinnerton-Dyer Conjecture", "credible_solution_date": "2027-07-20", "probability_pct": 68.0, "primary_contender": "DeepMind / Anthropic Math Agents", "breakthrough_impact": "Elliptic curve arithmetic and modern cryptographic hardening"}},
+        {{"problem": "Riemann Hypothesis", "credible_solution_date": "2028-05-15", "probability_pct": 58.0, "primary_contender": "Ensemble Autonomous Reasoners", "breakthrough_impact": "Deep prime distribution structure and foundational mathematics"}},
+        {{"problem": "Yang-Mills Existence & Mass Gap", "credible_solution_date": "2028-11-30", "probability_pct": 52.0, "primary_contender": "Quantum Field Theory AI Engines", "breakthrough_impact": "Mathematical foundation of fundamental particle physics"}},
+        {{"problem": "P versus NP Problem", "credible_solution_date": "2030-04-10", "probability_pct": 44.0, "primary_contender": "Recursive ASI Systems", "breakthrough_impact": "Universal optimization, computational limits, and cognitive automation"}},
+        {{"problem": "General Frontier Math (Erdos / Collatz)", "credible_solution_date": "2026-12-10", "probability_pct": 95.0, "primary_contender": "Lean 4 Autoformalization Clusters", "breakthrough_impact": "Continuous automated peer-reviewed proof synthesis"}}
+      ],
+      "synthesis": "2 concise sentences synthesizing how this multi-lab release wave compresses the path to personal financial sovereignty and healthspan."
     }}
     """
 
@@ -363,11 +408,12 @@ def compute_macro_horizon():
     anchors = result.get("model_anchors", {})
     daily_table = {"date": date_labels}
     tail_summary = {}
+    personal_effect_map = {}
 
     all_keys = [
         "gemini_flash_lite", "gemini_flash", "gemini_pro",
-        "claude_sonnet", "claude_haiku", "claude_fable", "claude_6",
-        "gpt_terra", "gpt_astra", "gpt_7"
+        "claude_sonnet", "claude_haiku", "claude_opus", "claude_fable", "claude_6",
+        "gpt_terra", "gpt_astra", "gpt_sol", "gpt_luna", "gpt_7"
     ]
 
     for k in all_keys:
@@ -375,12 +421,12 @@ def compute_macro_horizon():
         p_date = spec.get("peak_date", "2026-10-15")
         spread = float(spec.get("spread_days", 5.0))
         tail = float(spec.get("tail_pct", 25.0))
+        eff = int(spec.get("net_personal_effect", 25))
 
-        # Hardcoded quantitative enforcement of your 5 rules
         if k in ["claude_6", "gpt_7"]:
             tail = max(tail, 95.0)
             spread = max(spread, 7.0)
-        elif k in ["gpt_terra", "gpt_astra"]:
+        elif k in ["gpt_terra", "gpt_astra", "gpt_sol", "gpt_luna"]:
             spread = max(spread, 6.0)
             tail = max(tail, 40.0)
         elif k == "gemini_pro":
@@ -389,12 +435,14 @@ def compute_macro_horizon():
         curve = build_discrete_density(p_date, spread, tail, start_d, end_d)
         daily_table[k] = curve
         tail_summary[k] = round(tail, 1)
+        personal_effect_map[k] = eff
 
     result["daily_df"] = pd.DataFrame(daily_table)
     result["tail_summary"] = tail_summary
+    result["personal_effect_map"] = personal_effect_map
     result["polymarket_raw"] = poly_data
     result["active_model"] = active_model
-    result["refreshed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+    result["refreshed_at_budapest"] = get_budapest_now().strftime("%Y-%m-%d %H:%M CEST")
     return result
 
 def get_calibrated_peak(df, tail_val, col_name):
@@ -409,93 +457,108 @@ def get_calibrated_peak(df, tail_val, col_name):
         
     return "Pending", "0.0%"
 
+def calculate_countdown(target_datetime):
+    now = datetime.now()
+    diff = target_datetime - now
+    if diff.total_seconds() <= 0:
+        return "Achieved / Present"
+    days = diff.days
+    hours = diff.seconds // 3600
+    minutes = (diff.seconds % 3600) // 60
+    return f"{days}d {hours}h {minutes}m"
+
 # --- UI Execution ---
+st.title("🧬 Frontier Horizon | Intelligence, Capital & LEV")
+st.caption("Strategic Bayesian nexus connecting multi-lab model releases, macro geopolitics, and mathematical breakthroughs directly to your FIRE and Longevity Escape Velocity horizon.")
 
-st.title("🧬 Frontier AI & Longevity Horizon")
-st.caption("Live multi-lab prediction market synthesis mapping intelligence acceleration to personal autonomy and healthspan.")
-
-with st.spinner("Harvesting live order books in parallel and calibrating continuous distributions..."):
+with st.spinner("Harvesting live Polymarket order books in parallel and calibrating multi-domain models..."):
     data = compute_macro_horizon()
 
 if "error" in data:
     st.error(data["error"])
     st.stop()
 
-# 1. Executive Macro HUD
+# 1. Executive Top HUD
 exec_m = data.get("executive_metrics", {})
-col1, col2, col3, col4 = st.columns(4)
+c1, c2, c3, c4 = st.columns(4)
 
-with col1:
+with c1:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">FIRE Deflation Score</div>
-        <div class="metric-value">{exec_m.get('fire_deflation_score', 84)}/100</div>
+        <div class="metric-value">{exec_m.get('fire_deflation_score', 86)}/100</div>
         <div class="metric-delta">Cognitive Automation & Asset Compounding</div>
     </div>
     """, unsafe_allow_html=True)
 
-with col2:
+with c2:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">LEV Acceleration Index</div>
-        <div class="metric-value">{exec_m.get('lev_acceleration_score', 78)}/100</div>
-        <div class="metric-delta">Biomedical Discovery Velocity</div>
+        <div class="metric-value">{exec_m.get('lev_acceleration_score', 79)}/100</div>
+        <div class="metric-delta">Biomedical Rejuvenation Horizon</div>
     </div>
     """, unsafe_allow_html=True)
 
-with col3:
+with c3:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-title">Year-End Crown Consensus</div>
-        <div class="metric-value">{exec_m.get('year_end_champion', 'Anthropic')}</div>
-        <div class="metric-delta">{exec_m.get('champion_odds_pct', 68)}% Market Probability</div>
+        <div class="metric-title">Alan's AGI Countdown</div>
+        <div class="metric-value">{exec_m.get('alan_agi_pct', 99.0)}%</div>
+        <div class="metric-delta">Est. Completion: {exec_m.get('alan_agi_completion_date', '2026-12')}</div>
     </div>
     """, unsafe_allow_html=True)
 
-with col4:
+with c4:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-title">Metaculus AGI Consensus</div>
+        <div class="metric-title">Metaculus Full AGI Consensus</div>
         <div class="metric-value">May 2028</div>
-        <div class="metric-delta">Epistemic Crowd Median</div>
+        <div class="metric-delta">Epistemic Crowd Median (Q5121)</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.info(data.get("synthesis", ""))
 
-# 2. Main Navigation Tabs
-tab1, tab2, tab3, tab4 = st.tabs([
-    "⚡ Daily Release Radars", 
-    "🚀 Frontier Landscape & 2026 Crown", 
-    "⏳ Metaculus Epistemic Horizon", 
-    "🔍 Raw Order Books"
+# 2. Five Comprehensive Strategy Tabs
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "⚡ Frontier Release Radars", 
+    "🧬 Personal Timeline: FIRE, LEV & Mortality", 
+    "🏛️ Geopolitics & Personal Impact", 
+    "🧠 Alan Thompson Milestones & Millennium Math", 
+    "🔍 Live Epistemic & Order Book Audit"
 ])
 
 df_daily = data["daily_df"]
 tails = data["tail_summary"]
+effects = data["personal_effect_map"]
 
-# --- TAB 1: Daily Release Radars Across All 3 Labs ---
+# --- TAB 1: Frontier Release Radars (Google, Anthropic, OpenAI, + 2027+ Horizon) ---
 with tab1:
-    lab_tab_google, lab_tab_anthropic, lab_tab_openai = st.tabs([
-        "🔵 Google (Gemini)", 
-        "🟠 Anthropic (Claude)", 
-        "🟢 OpenAI (GPT)"
+    lab_google, lab_anthropic, lab_openai, lab_frontier = st.tabs([
+        "🔵 Google DeepMind", 
+        "🟠 Anthropic", 
+        "🟢 OpenAI",
+        "🌌 Frontier Horizon (2027+)"
     ])
     
     # --- GOOGLE ---
-    with lab_tab_google:
-        st.subheader("Google DeepMind · Implied Release Windows")
+    with lab_google:
+        st.subheader("Google DeepMind · Implied Release Trajectories")
         d_lite, p_lite = get_calibrated_peak(df_daily, tails["gemini_flash_lite"], "gemini_flash_lite")
         d_flash, p_flash = get_calibrated_peak(df_daily, tails["gemini_flash"], "gemini_flash")
         d_pro, p_pro = get_calibrated_peak(df_daily, tails["gemini_pro"], "gemini_pro")
         
-        c1, c2, c3 = st.columns(3)
-        with c1:
+        col_g1, col_g2, col_g3 = st.columns(3)
+        with col_g1:
             st.metric("Gemini Flash-Lite (3.6+)", d_lite, p_lite)
-        with c2:
+            st.caption(f"Net Personal Impact: **+{effects.get('gemini_flash_lite', 18)}%** (API efficiency)")
+        with col_g2:
             st.metric("Gemini Flash (3.9+ / 4.0)", d_flash, p_flash)
-        with c3:
-            st.metric("Gemini Pro", d_pro, p_pro)
+            st.caption(f"Net Personal Impact: **+{effects.get('gemini_flash', 22)}%** (Multimodal speed)")
+        with col_g3:
+            st.metric("Gemini Pro (Daily Driver)", d_pro, p_pro)
+            st.caption(f"Net Personal Impact: **+{effects.get('gemini_pro', 55)}%** (Pro Subscription core brain)")
             
         fig_g = go.Figure()
         fig_g.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gemini_flash_lite"], mode="lines+markers", name="Flash-Lite (3.6+)", line=dict(color="#38bdf8", width=2.5)))
@@ -503,206 +566,303 @@ with tab1:
         fig_g.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gemini_pro"], mode="lines+markers", name="Gemini Pro", line=dict(color="#f43f5e", width=2.5)))
         fig_g.update_layout(
             template="plotly_dark",
-            xaxis_title="Calendar Date (September - October 2026)",
-            yaxis_title="Implied Daily Probability (%)",
+            xaxis_title="Date",
+            yaxis_title="Probability Density (%)",
             hovermode="x unified",
             margin=dict(l=20, r=20, t=20, b=20),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_g, use_container_width=True)
-        
-        st.caption(f"Post-October 31 Tail Probability: Flash-Lite: {tails['gemini_flash_lite']}% | Flash: {tails['gemini_flash']}% | Pro: {tails['gemini_pro']}%")
-        
-        table_g = df_daily[["date", "gemini_flash_lite", "gemini_flash", "gemini_pro"]].copy()
-        tail_row_g = pd.DataFrame([{
-            "date": "Post-October 31 (Tail)",
-            "gemini_flash_lite": tails["gemini_flash_lite"],
-            "gemini_flash": tails["gemini_flash"],
-            "gemini_pro": tails["gemini_pro"]
-        }])
-        table_g = pd.concat([table_g, tail_row_g], ignore_index=True)
-        st.dataframe(table_g.rename(columns={
-            "date": "Calendar Date",
-            "gemini_flash_lite": "Flash-Lite (%)",
-            "gemini_flash": "Flash (%)",
-            "gemini_pro": "Pro (%)"
-        }), use_container_width=True, height=360)
+        st.caption(f"Post-October 31 Tail: Flash-Lite: {tails['gemini_flash_lite']}% | Flash: {tails['gemini_flash']}% | Pro: {tails['gemini_pro']}%")
 
     # --- ANTHROPIC ---
-    with lab_tab_anthropic:
-        st.subheader("Anthropic · Implied Release Windows")
+    with lab_anthropic:
+        st.subheader("Anthropic · Implied Release Trajectories")
         d_sonnet, p_sonnet = get_calibrated_peak(df_daily, tails["claude_sonnet"], "claude_sonnet")
         d_haiku, p_haiku = get_calibrated_peak(df_daily, tails["claude_haiku"], "claude_haiku")
+        d_opus, p_opus = get_calibrated_peak(df_daily, tails["claude_opus"], "claude_opus")
         d_fable, p_fable = get_calibrated_peak(df_daily, tails["claude_fable"], "claude_fable")
         
-        c1, c2, c3 = st.columns(3)
-        with c1:
+        col_a1, col_a2, col_a3, col_a4 = st.columns(4)
+        with col_a1:
             st.metric("Next Claude Sonnet", d_sonnet, p_sonnet)
-        with c2:
+            st.caption(f"Personal Impact: **+{effects.get('claude_sonnet', 48)}%**")
+        with col_a2:
             st.metric("Next Claude Haiku", d_haiku, p_haiku)
-        with c3:
+            st.caption(f"Personal Impact: **+{effects.get('claude_haiku', 15)}%**")
+        with col_a3:
+            st.metric("Next Claude Opus", d_opus, p_opus)
+            st.caption(f"Personal Impact: **+{effects.get('claude_opus', 42)}%**")
+        with col_a4:
             st.metric("Claude Fable 5.2", d_fable, p_fable)
+            st.caption(f"Personal Impact: **+{effects.get('claude_fable', 26)}%**")
             
         fig_a = go.Figure()
         fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_sonnet"], mode="lines+markers", name="Next Sonnet", line=dict(color="#f59e0b", width=2.5)))
         fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_haiku"], mode="lines+markers", name="Next Haiku", line=dict(color="#fb923c", width=2.5)))
+        fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_opus"], mode="lines+markers", name="Next Opus", line=dict(color="#ec4899", width=2.5)))
         fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_fable"], mode="lines+markers", name="Claude Fable 5.2", line=dict(color="#c084fc", width=2.5)))
         fig_a.update_layout(
             template="plotly_dark",
-            xaxis_title="Calendar Date (September - October 2026)",
-            yaxis_title="Implied Daily Probability (%)",
+            xaxis_title="Date",
+            yaxis_title="Probability Density (%)",
             hovermode="x unified",
             margin=dict(l=20, r=20, t=20, b=20),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_a, use_container_width=True)
-        
-        st.caption(f"Post-October 31 Tail Probability: Next Sonnet: {tails['claude_sonnet']}% | Next Haiku: {tails['claude_haiku']}% | Fable 5.2: {tails['claude_fable']}% | Claude 6 (Frontier): {tails['claude_6']}%")
-        
-        table_a = df_daily[["date", "claude_sonnet", "claude_haiku", "claude_fable"]].copy()
-        tail_row_a = pd.DataFrame([{
-            "date": "Post-October 31 (Tail)",
-            "claude_sonnet": tails["claude_sonnet"],
-            "claude_haiku": tails["claude_haiku"],
-            "claude_fable": tails["claude_fable"]
-        }])
-        table_a = pd.concat([table_a, tail_row_a], ignore_index=True)
-        st.dataframe(table_a.rename(columns={
-            "date": "Calendar Date",
-            "claude_sonnet": "Next Sonnet (%)",
-            "claude_haiku": "Next Haiku (%)",
-            "claude_fable": "Fable 5.2 (%)"
-        }), use_container_width=True, height=360)
+        st.caption(f"Post-October 31 Tail: Sonnet: {tails['claude_sonnet']}% | Haiku: {tails['claude_haiku']}% | Opus: {tails['claude_opus']}% | Fable: {tails['claude_fable']}%")
 
     # --- OPENAI ---
-    with lab_tab_openai:
-        st.subheader("OpenAI · Implied Release Windows")
+    with lab_openai:
+        st.subheader("OpenAI · Implied Release Trajectories")
         d_terra, p_terra = get_calibrated_peak(df_daily, tails["gpt_terra"], "gpt_terra")
         d_astra, p_astra = get_calibrated_peak(df_daily, tails["gpt_astra"], "gpt_astra")
-        d_g7, p_g7 = get_calibrated_peak(df_daily, tails["gpt_7"], "gpt_7")
+        d_sol, p_sol = get_calibrated_peak(df_daily, tails["gpt_sol"], "gpt_sol")
+        d_luna, p_luna = get_calibrated_peak(df_daily, tails["gpt_luna"], "gpt_luna")
         
-        c1, c2, c3 = st.columns(3)
-        with c1:
+        col_o1, col_o2, col_o3, col_o4 = st.columns(4)
+        with col_o1:
             st.metric("GPT-Terra 5.7", d_terra, p_terra)
-        with c2:
+            st.caption(f"Personal Impact: **+{effects.get('gpt_terra', 16)}%**")
+        with col_o2:
             st.metric("GPT-Astra 6.1", d_astra, p_astra)
-        with c3:
-            st.metric("GPT-7 (Frontier)", d_g7, p_g7)
+            st.caption(f"Personal Impact: **+{effects.get('gpt_astra', 30)}%**")
+        with col_o3:
+            st.metric("GPT-Sol 6.1", d_sol, p_sol)
+            st.caption(f"Personal Impact: **+{effects.get('gpt_sol', 24)}%**")
+        with col_o4:
+            st.metric("GPT-Luna 6.1", d_luna, p_luna)
+            st.caption(f"Personal Impact: **+{effects.get('gpt_luna', 20)}%**")
             
         fig_o = go.Figure()
         fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_terra"], mode="lines+markers", name="GPT-Terra 5.7", line=dict(color="#10b981", width=2.5)))
         fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_astra"], mode="lines+markers", name="GPT-Astra 6.1", line=dict(color="#06b6d4", width=2.5)))
-        fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_7"], mode="lines+markers", name="GPT-7 (Frontier)", line=dict(color="#ec4899", width=2.5)))
+        fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_sol"], mode="lines+markers", name="GPT-Sol 6.1", line=dict(color="#facc15", width=2.5)))
+        fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_luna"], mode="lines+markers", name="GPT-Luna 6.1", line=dict(color="#a855f7", width=2.5)))
         fig_o.update_layout(
             template="plotly_dark",
-            xaxis_title="Calendar Date (September - October 2026)",
-            yaxis_title="Implied Daily Probability (%)",
+            xaxis_title="Date",
+            yaxis_title="Probability Density (%)",
             hovermode="x unified",
             margin=dict(l=20, r=20, t=20, b=20),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_o, use_container_width=True)
-        
-        st.caption(f"Post-October 31 Tail Probability: GPT-Terra 5.7: {tails['gpt_terra']}% | GPT-Astra 6.1: {tails['gpt_astra']}% | GPT-7 (Frontier): {tails['gpt_7']}%")
-        
-        table_o = df_daily[["date", "gpt_terra", "gpt_astra", "gpt_7"]].copy()
-        tail_row_o = pd.DataFrame([{
-            "date": "Post-October 31 (Tail)",
-            "gpt_terra": tails["gpt_terra"],
-            "gpt_astra": tails["gpt_astra"],
-            "gpt_7": tails["gpt_7"]
-        }])
-        table_o = pd.concat([table_o, tail_row_o], ignore_index=True)
-        st.dataframe(table_o.rename(columns={
-            "date": "Calendar Date",
-            "gpt_terra": "GPT-Terra (%)",
-            "gpt_astra": "GPT-Astra (%)",
-            "gpt_7": "GPT-7 (%)"
-        }), use_container_width=True, height=360)
+        st.caption(f"Post-October 31 Tail (Rule 2 Wide Spread): Terra: {tails['gpt_terra']}% | Astra: {tails['gpt_astra']}% | Sol: {tails['gpt_sol']}% | Luna: {tails['gpt_luna']}%")
 
-# --- TAB 2: Frontier Landscape & 2026 Crown ---
-with tab2:
-    st.subheader("Q4 Frontier Release Windows & 2026 Crown Consensus")
-    col_summary, col_pie = st.columns([3, 2])
-    
-    with col_summary:
-        d_glite, _ = get_calibrated_peak(df_daily, tails["gemini_flash_lite"], "gemini_flash_lite")
-        d_gflash, _ = get_calibrated_peak(df_daily, tails["gemini_flash"], "gemini_flash")
-        d_gpro, _ = get_calibrated_peak(df_daily, tails["gemini_pro"], "gemini_pro")
-        d_asonnet, _ = get_calibrated_peak(df_daily, tails["claude_sonnet"], "claude_sonnet")
-        d_ahaiku, _ = get_calibrated_peak(df_daily, tails["claude_haiku"], "claude_haiku")
-        d_afable, _ = get_calibrated_peak(df_daily, tails["claude_fable"], "claude_fable")
-        d_oterra, _ = get_calibrated_peak(df_daily, tails["gpt_terra"], "gpt_terra")
-        d_oastra, _ = get_calibrated_peak(df_daily, tails["gpt_astra"], "gpt_astra")
+    # --- FRONTIER 2027+ ---
+    with lab_frontier:
+        st.subheader("🌌 Multi-Year Frontier Architectural Leaps (2027+ Horizon)")
+        st.caption("True paradigm shifts governed by Rule 3: strictly anchored to post-October tail probabilities (≥ 95%).")
         
-        summary_rows = [
-            {"Lab": "Google", "Model": "Gemini Flash-Lite (3.6+)", "Window": d_glite, "Status": "Near-term distillation"},
-            {"Lab": "Google", "Model": "Gemini Flash (3.9+ / 4.0)", "Window": d_gflash, "Status": "Multimodal speed milestone"},
-            {"Lab": "Google", "Model": "Gemini Pro", "Window": d_gpro, "Status": "Frontier agentic flagship"},
-            {"Lab": "Anthropic", "Model": "Next Claude Sonnet", "Window": d_asonnet, "Status": "Autonomous software standard"},
-            {"Lab": "Anthropic", "Model": "Next Claude Haiku", "Window": d_ahaiku, "Status": "Tool execution model"},
-            {"Lab": "Anthropic", "Model": "Claude Fable 5.2", "Window": d_afable, "Status": "Specialized reasoning checkpoint"},
-            {"Lab": "Anthropic", "Model": "Claude 6", "Window": "2027+ Horizon", "Status": f"Frontier leap ({tails['claude_6']}% Post-Oct)"},
-            {"Lab": "OpenAI", "Model": "GPT-Terra 5.7", "Window": d_oterra, "Status": "Iterative checkpoint (wide spread)"},
-            {"Lab": "OpenAI", "Model": "GPT-Astra 6.1", "Window": d_oastra, "Status": "Point release (wide spread)"},
-            {"Lab": "OpenAI", "Model": "GPT-7", "Window": "2027+ Horizon", "Status": f"Frontier leap ({tails['gpt_7']}% Post-Oct)"}
-        ]
-        st.dataframe(pd.DataFrame(summary_rows), use_container_width=True)
-
-    with col_pie:
-        st.subheader("Which Company Has Best Model End of 2026?")
-        standings = data.get("best_ai_2026_standings", [])
-        if standings:
-            df_stand = pd.DataFrame(standings)
-            fig_pie = go.Figure(data=[go.Pie(
-                labels=df_stand["company"],
-                values=df_stand["implied_pct"],
-                hole=0.45,
-                marker=dict(colors=["#f59e0b", "#10b981", "#38bdf8", "#8b5cf6"])
-            )])
-            fig_pie.update_layout(
-                template="plotly_dark",
-                margin=dict(l=10, r=10, t=10, b=10),
-                height=300,
-                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
-            )
-            st.plotly_chart(fig_pie, use_container_width=True)
-            st.caption("Resolves via Arena.ai Blind Leaderboard and Artificial Analysis index at midnight Dec 31, 2026.")
-
-# --- TAB 3: Metaculus Epistemic Horizon ---
-with tab3:
-    st.subheader("⏳ Top 10 Epistemic Benchmarks: AGI, Longevity & FIRE Economics")
-    st.caption("Aggregated superforecaster medians unpolluted by retail betting illiquidity.")
-    
-    meta_cols = st.columns(2)
-    for idx, item in enumerate(METACULUS_BENCHMARKS):
-        target_col = meta_cols[idx % 2]
-        with target_col:
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-title">{item['category']} · Question #{item['id']}</div>
-                <div class="metric-value">{item['community_median']}</div>
-                <div style="font-size: 1.05rem; font-weight: 600; color: #f9fafb; margin: 0.4rem 0;">
-                    {item['title']}
+                <div class="metric-title">Anthropic Frontier Flagship</div>
+                <div class="metric-value">Claude 6</div>
+                <div class="metric-delta">Most Likely Horizon: Q2 2027 · {tails['claude_6']}% Post-Oct Tail</div>
+                <div style="margin-top: 0.75rem; font-size: 0.88rem; color: #d1d5db;">
+                    <strong>Net Personal Impact:</strong> <span style="color:#10b981; font-weight:700;">+{effects.get('claude_6', 78)}%</span><br>
+                    Next-generation epistemic reasoning architecture, autonomous multi-step software synthesis, and massive biological simulation compression.
                 </div>
-                <div style="font-size: 0.85rem; color: #9ca3af; line-height: 1.4;">
-                    <strong>Strategic FIRE / LEV Impact:</strong> {item['impact']}
+            </div>
+            """, unsafe_allow_html=True)
+        with col_f2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">OpenAI Frontier Flagship</div>
+                <div class="metric-value">GPT-7</div>
+                <div class="metric-delta">Most Likely Horizon: Mid 2027 · {tails['gpt_7']}% Post-Oct Tail</div>
+                <div style="margin-top: 0.75rem; font-size: 0.88rem; color: #d1d5db;">
+                    <strong>Net Personal Impact:</strong> <span style="color:#10b981; font-weight:700;">+{effects.get('gpt_7', 85)}%</span><br>
+                    Universal self-directed research agent, autonomous mathematical proof engine, and the definitive catalyst pulling forward AGI and LEV.
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-# --- TAB 4: Raw Order Books ---
+# --- TAB 2: Personal Timeline (FIRE, LEV, Mortality & AGI Countdowns) ---
+with tab2:
+    st.subheader("🧬 Personal Longevity & Financial Independence Horizon")
+    st.caption("Custom-calibrated countdowns mapping your life journey from late 2026 through the intelligence inflection.")
+
+    # Dates
+    dt_weak_agi = datetime(2027, 2, 1)
+    dt_full_agi = datetime(2028, 5, 1)
+    dt_asi = datetime(2030, 10, 1)
+    dt_lev_personal = datetime(2037, 10, 15)
+    dt_fire_personal = datetime(2031, 12, 1)
+    dt_status_quo_death = datetime(2078, 12, 1)
+    dt_lev_extended_death = datetime(2145, 12, 1)
+
+    c_row1, c_row2, c_row3 = st.columns(3)
+    with c_row1:
+        st.markdown(f"""
+        <div class="countdown-box">
+            <div class="countdown-sub">Most Probable Personal LEV Arrival</div>
+            <div class="countdown-num">{calculate_countdown(dt_lev_personal)}</div>
+            <div style="font-size: 0.8rem; color: #a5b4fc;">Target: October 2037 · Age 33</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_row2:
+        st.markdown(f"""
+        <div class="countdown-box">
+            <div class="countdown-sub">Countdown to Personal FIRE</div>
+            <div class="countdown-num">{calculate_countdown(dt_fire_personal)}</div>
+            <div style="font-size: 0.8rem; color: #a5b4fc;">Target: Late 2031 (60M HUF Milestone Compounding)</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_row3:
+        st.markdown(f"""
+        <div class="countdown-box">
+            <div class="countdown-sub">Longevity Horizon / Death Countdown</div>
+            <div class="countdown-num">{calculate_countdown(dt_lev_extended_death)}</div>
+            <div style="font-size: 0.8rem; color: #a5b4fc;">LEV-Adjusted Horizon: ~2145+ (Age 140+)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.caption("Note on Death Countdown: The status-quo Hungarian actuarial baseline points to **December 2078** (Age 75, ~52 years remaining). Reaching LEV in October 2037 with 41 years of biological reserve allows subsequent annual rejuvenation breakthroughs to extend healthspan past **2145+**.")
+
+    st.divider()
+    st.subheader("⚡ AGI & Superintelligence Milestone Countdowns")
+    c_agi1, c_agi2, c_agi3 = st.columns(3)
+    with c_agi1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">Weakly General AI (Metaculus 3479)</div>
+            <div class="metric-value">{calculate_countdown(dt_weak_agi)}</div>
+            <div class="metric-delta">Target: Q1 2027</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_agi2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">Full AGI (Metaculus 5121)</div>
+            <div class="metric-value">{calculate_countdown(dt_full_agi)}</div>
+            <div class="metric-delta">Target: May 2028</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_agi3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">Full ASI (Superintelligence)</div>
+            <div class="metric-value">{calculate_countdown(dt_asi)}</div>
+            <div class="metric-delta">Target: Late 2030 (~29mo post-AGI)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.subheader("📈 FIRE Compression Multiplier (VUAA & Cognitive Deflation)")
+    st.write("""
+    Every frontier model release directly accelerates your path to FIRE via two transmission channels:
+    1. **Direct Software Deflation**: Tools, software subscriptions, and developer costs drop toward marginal compute cost.
+    2. **Asset Compounding Velocity**: High-capex Big Tech returns compound the global equity index (VUAA ETF) inside your tax-sheltered TBSZ account.
+    """)
+
+# --- TAB 3: Geopolitics & Personal Impact Matrix ---
+with tab3:
+    st.subheader("🏛️ Macro Geopolitics & Live Personal Life Effect Matrix")
+    st.caption("Evaluated strictly through your European / Hungarian capital and life lens (EU AI regulation, EUR/HUF currency stability, and VUAA compounding).")
+
+    geo_list = data.get("geopolitics_scenarios", [])
+    if geo_list:
+        for item in geo_list:
+            eff = item["net_personal_effect"]
+            eff_color = "#10b981" if eff > 0 else "#ef4444"
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="metric-title">{item['event']} · Implied Odds: {item['probability_pct']}%</span>
+                    <span style="font-size: 1.1rem; font-weight: 700; color: {eff_color};">Net Personal Effect: {eff:+d}%</span>
+                </div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: #f3f4f6; margin: 0.25rem 0;">
+                    {item['outcome']}
+                </div>
+                <div style="font-size: 0.85rem; color: #9ca3af; line-height: 1.4;">
+                    <strong>Transmission Mechanism:</strong> {item['transmission']}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.subheader("📊 Net Personal Life Impact Matrix Across All 13 AI Models")
+    model_impact_rows = [
+        {"Model Tier": "Gemini Pro", "Lab": "Google", "Personal Effect": f"+{effects.get('gemini_pro', 55)}%", "Key Channel": "Primary daily driver brain, long context, coding execution"},
+        {"Model Tier": "Claude 6 (Frontier)", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_6', 78)}%", "Key Channel": "Autonomous software engineering, massive LEV research pull-forward"},
+        {"Model Tier": "GPT-7 (Frontier)", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_7', 85)}%", "Key Channel": "Universal self-directed research agent, autonomous proof solving"},
+        {"Model Tier": "Next Claude Sonnet", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_sonnet', 48)}%", "Key Channel": "Industry standard agentic coding, personal tooling automation"},
+        {"Model Tier": "Next Claude Opus", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_opus', 42)}%", "Key Channel": "Complex mathematical and biochemical reasoning"},
+        {"Model Tier": "GPT-Astra 6.1", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_astra', 30)}%", "Key Channel": "Autonomous test-time reasoning and verification"},
+        {"Model Tier": "Claude Fable 5.2", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_fable', 26)}%", "Key Channel": "Specialized creative and structural reasoning"},
+        {"Model Tier": "GPT-Sol 6.1", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_sol', 24)}%", "Key Channel": "Fast reasoning and code analysis"},
+        {"Model Tier": "Gemini Flash (3.9+ / 4.0)", "Lab": "Google", "Personal Effect": f"+{effects.get('gemini_flash', 22)}%", "Key Channel": "Gemini Live voice speed and real-time multimodal parsing"},
+        {"Model Tier": "GPT-Luna 6.1", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_luna', 20)}%", "Key Channel": "Lightweight planning agent"},
+        {"Model Tier": "Gemini Flash-Lite (3.6+)", "Lab": "Google", "Personal Effect": f"+{effects.get('gemini_flash_lite', 18)}%", "Key Channel": "Low-cost local API scripting throughput"},
+        {"Model Tier": "GPT-Terra 5.7", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_terra', 16)}%", "Key Channel": "Developer iterative debugging"},
+        {"Model Tier": "Next Claude Haiku", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_haiku', 15)}%", "Key Channel": "Background sub-agent routing and execution"}
+    ]
+    st.dataframe(pd.DataFrame(model_impact_rows), use_container_width=True)
+
+# --- TAB 4: Alan Thompson Milestones & Millennium Math ---
 with tab4:
-    st.subheader("Live Polymarket Contract Inspection")
+    st.subheader("🧠 Alan Thompson (LifeArchitect.ai) AGI / ASI Tracking")
+    
+    col_alan1, col_alan2 = st.columns([1, 2])
+    with col_alan1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">Alan's Conservative AGI Countdown</div>
+            <div class="metric-value">99% Achieved</div>
+            <div class="metric-delta">Target Completion: Late 2026 / Early 2027</div>
+            <div style="font-size: 0.82rem; color: #9ca3af; margin-top: 0.5rem;">
+                Guides official AI policy for Microsoft, UN, and G7. Tracks human-level median performance across all cognitive dimensions.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_alan2:
+        achieved_count = sum(1 for m in ALAN_THOMPSON_50_INDICATORS if m["status"] == "Achieved")
+        in_progress_count = sum(1 for m in ALAN_THOMPSON_50_INDICATORS if m["status"] == "In Progress")
+        dt_full_alan_completion = datetime(2030, 4, 1)
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">Alan's ASI Indicators (First 50 Milestones)</div>
+            <div class="metric-value">{achieved_count}/50 Completed · {in_progress_count} In Progress</div>
+            <div class="metric-delta">Countdown to 100% Completion: {calculate_countdown(dt_full_alan_completion)}</div>
+            <div style="font-size: 0.82rem; color: #9ca3af; margin-top: 0.5rem;">
+                Target date for final indicator #50 (Closed-Loop ASI Engine): <strong>April 2030</strong>.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with st.expander("📋 Inspect Alan Thompson's 50 ASI Indicators (Live Status & Predicted Dates)"):
+        st.dataframe(pd.DataFrame(ALAN_THOMPSON_50_INDICATORS), use_container_width=True, height=400)
+
+    st.divider()
+    st.subheader("📐 Millennium Prize Mathematics Solution Forecast")
+    st.caption("Estimated single most likely calendar date that a credible, published solution arrives for each problem.")
+
+    math_solutions = data.get("millennium_math_solutions", [])
+    if math_solutions:
+        st.dataframe(pd.DataFrame(math_solutions).rename(columns={
+            "problem": "Millennium Prize Problem",
+            "credible_solution_date": "Most Probable Solution Date",
+            "probability_pct": "Confidence (%)",
+            "primary_contender": "Leading Contender / Mechanism",
+            "breakthrough_impact": "Disciplinary Impact"
+        }), use_container_width=True)
+
+# --- TAB 5: Live Epistemic & Order Book Audit ---
+with tab5:
+    st.subheader("🔍 Live Polymarket Order Books & Inversion Audit")
+    st.caption("Raw order book state verifying volume and negative contract resolution across all monitored markets.")
     for ev in data.get("polymarket_raw", []):
         with st.expander(f"{ev['entity']} · {ev['label']} ({len(ev['options'])} options)"):
-            st.caption(f"Event Slug: `{ev['slug']}`")
+            st.caption(f"Slug: `{ev['slug']}`")
             if ev["options"]:
                 st.table(pd.DataFrame(ev["options"]))
 
-# Footer
+# Footer with Budapest timestamp and manual update trigger
 st.divider()
-st.caption(f"Engine: Google AI Studio ({data.get('active_model', 'gemini-3.6-flash')}) · Polymarket Gamma API · Metaculus Epistemics · Last Calibrated: {data['refreshed_at']}")
-if st.button("Force Synchronized Market Recalculation"):
+st.caption(f"Engine: Google AI Studio ({data.get('active_model', 'gemini-3.8-flash')}) · Automated Cache: 60 Minutes · Last Calibrated: {data.get('refreshed_at_budapest', 'Budapest Time')}")
+if st.button("Force Synchronized Market Recalculation (Budapest Time)"):
     st.cache_data.clear()
     st.rerun()
