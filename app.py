@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import json
 import os
+import math
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, date, timedelta
@@ -52,7 +54,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Target Polymarket Events across all 3 labs
 POLYMARKET_EVENTS = [
     # Google
     {"slug": "when-will-the-next-google-gemini-pro-model-be-released-20260817144359068", "entity": "Google", "label": "Gemini Pro"},
@@ -76,7 +77,6 @@ POLYMARKET_EVENTS = [
     {"slug": "which-company-has-best-ai-model-end-of-2026", "entity": "Crown", "label": "Best Model End of 2026"}
 ]
 
-# Top 10 Epistemic Benchmarks (AGI, LEV, and FIRE Economics)
 METACULUS_BENCHMARKS = [
     {
         "id": 5121,
@@ -150,53 +150,56 @@ METACULUS_BENCHMARKS = [
     }
 ]
 
-def fetch_all_polymarket_data():
+def fetch_single_event(item):
+    slug = item["slug"]
     base_url = "https://gamma-api.polymarket.com/events?slug="
-    records = []
-    
-    for item in POLYMARKET_EVENTS:
-        slug = item["slug"]
-        try:
-            res = requests.get(f"{base_url}{slug}", timeout=8)
-            if res.status_code == 200:
-                data = res.json()
-                if data and isinstance(data, list):
-                    ev = data[0]
-                    markets = ev.get("markets", [])
-                    extracted_options = []
+    try:
+        res = requests.get(f"{base_url}{slug}", timeout=4)
+        if res.status_code == 200:
+            data = res.json()
+            if data and isinstance(data, list):
+                ev = data[0]
+                extracted = []
+                for m in ev.get("markets", []):
+                    q = m.get("question", "")
+                    title = m.get("groupItemTitle", "") or q
+                    prices_raw = m.get("outcomePrices", '["0.5", "0.5"]')
+                    try:
+                        yes_price = float(json.loads(prices_raw)[0])
+                    except Exception:
+                        yes_price = 0.5
+                    vol = float(m.get("volumeNum", 0) or m.get("volume", 0) or 0)
                     
-                    for m in markets:
-                        q = m.get("question", "")
-                        title = m.get("groupItemTitle", "") or q
-                        prices_raw = m.get("outcomePrices", '["0.5", "0.5"]')
-                        try:
-                            prices = json.loads(prices_raw)
-                            yes_price = float(prices[0])
-                        except Exception:
-                            yes_price = 0.5
-                            
-                        vol = float(m.get("volumeNum", 0) or m.get("volume", 0) or 0)
+                    if "no release" in (q + " " + title).lower():
+                        implied = round(1.0 - yes_price, 4)
+                    else:
+                        implied = round(yes_price, 4)
                         
-                        if "no release" in (q + " " + title).lower():
-                            implied = round(1.0 - yes_price, 4)
-                        else:
-                            implied = round(yes_price, 4)
-                            
-                        extracted_options.append({
-                            "option": title,
-                            "implied_prob": implied,
-                            "raw_yes": yes_price,
-                            "volume": vol
-                        })
-                    
-                    records.append({
-                        "label": item["label"],
-                        "entity": item["entity"],
-                        "slug": slug,
-                        "options": extracted_options
+                    extracted.append({
+                        "option": title,
+                        "implied_prob": implied,
+                        "raw_yes": yes_price,
+                        "volume": vol
                     })
-        except Exception:
-            continue
+                return {
+                    "label": item["label"],
+                    "entity": item["entity"],
+                    "slug": slug,
+                    "options": extracted
+                }
+    except Exception:
+        pass
+    return None
+
+def fetch_all_polymarket_data():
+    records = []
+    # Run all 13 requests in parallel across a thread pool
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(fetch_single_event, item) for item in POLYMARKET_EVENTS]
+        for f in as_completed(futures):
+            res = f.result()
+            if res:
+                records.append(res)
     return records
 
 def get_api_key():
@@ -204,49 +207,81 @@ def get_api_key():
         return st.secrets["GEMINI_API_KEY"]
     return os.environ.get("GEMINI_API_KEY")
 
-def execute_gemini_query(client, prompt):
-    """Executes using the modern Interactions API first, falling back gracefully."""
-    candidate_models = [
-        "gemini-3.8-flash",
-        "gemini-3.6-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-3.5-flash"
-    ]
+def execute_gemini_interactions(client, prompt):
+    candidate_models = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite"]
     
-    # 1. Primary: Use the standard Interactions API
+    # 1. Modern Interactions API
     if hasattr(client, "interactions"):
         for m in candidate_models:
             try:
                 interaction = client.interactions.create(
                     model=m,
-                    input=prompt
+                    input=prompt,
+                    response_format={"type": "text", "mime_type": "application/json"},
+                    generation_config={"thinking_level": "low"}
                 )
                 text = getattr(interaction, "output_text", None)
                 if not text and hasattr(interaction, "outputs") and interaction.outputs:
-                    for out in reversed(interaction.outputs):
-                        if hasattr(out, "text") and out.text:
-                            text = out.text
-                            break
+                    text = interaction.outputs[-1].text
                 if text:
                     return text, f"{m} (Interactions API)"
             except Exception:
                 continue
 
-    # 2. Secondary fallback: GenerateContent API
-    last_error = None
+    # 2. GenerateContent Fallback
     for m in candidate_models:
         try:
             resp = client.models.generate_content(
                 model=m,
-                contents=prompt
+                contents=prompt,
+                config={"response_mime_type": "application/json"}
             )
             if resp and resp.text:
                 return resp.text, f"{m} (GenerateContent API)"
-        except Exception as e:
-            last_error = e
+        except Exception:
             continue
 
-    raise RuntimeError(f"All API endpoints rejected query. Last error: {str(last_error)}")
+    raise RuntimeError("All candidate endpoints failed. Verify API key status.")
+
+def build_discrete_density(peak_date_str, spread_days, tail_pct, start_d, end_d):
+    """Computes Gaussian probability density across calendar days with Google weekday weighting."""
+    try:
+        p_date = datetime.strptime(peak_date_str, "%Y-%m-%d").date()
+    except Exception:
+        p_date = start_d + timedelta(days=15)
+        
+    num_days = (end_d - start_d).days + 1
+    raw_weights = []
+    
+    for i in range(num_days):
+        curr_d = start_d + timedelta(days=i)
+        diff = (curr_d - p_date).days
+        # Normal distribution density
+        base_w = math.exp(-0.5 * ((diff / max(1.5, spread_days)) ** 2))
+        
+        # Google deployment cadence priors
+        weekday = curr_d.weekday()  # Mon=0, Sun=6
+        if weekday in [1, 2, 3]:    # Tue, Wed, Thu
+            w_factor = 1.0
+        elif weekday == 0:          # Mon
+            w_factor = 0.75
+        elif weekday == 4:          # Fri
+            w_factor = 0.60
+        else:                       # Sat, Sun (weekend baseline floor)
+            w_factor = 0.15
+            
+        raw_weights.append(base_w * w_factor)
+        
+    sum_w = sum(raw_weights)
+    available_mass = max(5.0, 100.0 - float(tail_pct))
+    
+    daily_pcts = []
+    if sum_w > 0:
+        daily_pcts = [round((w / sum_w) * available_mass, 2) for w in raw_weights]
+    else:
+        daily_pcts = [round(available_mass / num_days, 2)] * num_days
+        
+    return daily_pcts
 
 @st.cache_data(ttl=3600)
 def compute_macro_horizon():
@@ -260,18 +295,6 @@ def compute_macro_horizon():
 
     client = genai.Client(api_key=api_key)
 
-    start_date = date(2026, 9, 23)
-    end_date = date(2026, 10, 31)
-    calendar_entries = []
-    curr = start_date
-    while curr <= end_date:
-        calendar_entries.append({
-            "date": curr.strftime("%Y-%m-%d"),
-            "weekday": curr.strftime("%A")
-        })
-        curr += timedelta(days=1)
-    calendar_entries.append({"date": "no release before october 31", "weekday": "N/A"})
-
     prompt = f"""
     You are an expert quantitative forecaster and Bayesian modeler.
     Current Date: Late September 2026.
@@ -279,35 +302,13 @@ def compute_macro_horizon():
     LIVE POLYMARKET MARKET DATA:
     {json.dumps(poly_data, indent=2)}
 
-    CALENDAR LIST (40 ENTRIES):
-    {json.dumps(calendar_entries, indent=2)}
-
     REQUIRED TASKS:
-    1. MODEL CONTINUOUS DAILY DISTRIBUTIONS FOR 9 TARGET MODELS:
-       A. GOOGLE:
-          - gemini_pro: High-volume anchor ($1.34M cumulative market). Peaks midweek in the October 13-17 window.
-          - gemini_flash: Faster rollout, peaking earlier around October 6-10.
-          - gemini_flash_lite: Distillation of 3.6, broad early distribution peaking early October (Oct 2-6).
-       B. ANTHROPIC:
-          - claude_sonnet: Heavy weight late September to early October (Sept 29 - Oct 3).
-          - claude_haiku: Fast follow, peaks early-to-mid October (Oct 5-9).
-          - claude_6: Next-gen flagship, peaks late October (Oct 22-28) or into the post-Oct tail.
-       C. OPENAI:
-          - gpt_terra: Mid-tier checkpoint, peaks early October (Oct 7-12).
-          - gpt_astra: Autonomous reasoning tier, peaks mid-to-late October (Oct 15-20).
-          - gpt_7: Frontier architecture, low probability before end of October, heavy post-Oct tail.
+    Evaluate the order books and output anchor calibration parameters for each model:
+    - Google: Gemini Pro (peaks Oct 13-17), Flash (peaks Oct 6-10), Flash-Lite (peaks Oct 2-6).
+    - Anthropic: Next Sonnet (peaks Sept 29 - Oct 3), Next Haiku (peaks Oct 5-9), Claude 6 (peaks late Oct / post-Oct).
+    - OpenAI: GPT-Terra (peaks Oct 7-12), GPT-Astra (peaks Oct 15-20), GPT-7 (heavy post-Oct tail).
 
-    2. CURVE SHAPING:
-       - No flat horizontal plateaus.
-       - Natural midweek crests (Tuesday to Thursday), tapering Fridays, and 0.4% to 0.8% baseline weekend floors.
-       - Calculate discrete numbers for every single calendar entry.
-
-    3. EXECUTIVE METRICS & STANDINGS:
-       - fire_deflation_score (1-100) and lev_acceleration_score (1-100).
-       - Standings for 'Which company has best AI model end of 2026' (Anthropic, OpenAI, Google).
-       - 2-sentence synthesis linking Q4 cluster releases to capital compounding and longevity.
-
-    Return STRICT JSON ONLY matching this schema:
+    Return strict JSON ONLY with this schema:
     {{
       "executive_metrics": {{
         "fire_deflation_score": 85,
@@ -315,69 +316,84 @@ def compute_macro_horizon():
         "year_end_champion": "Anthropic",
         "champion_odds_pct": 68.0
       }},
-      "daily_distributions": [
-        {{
-          "date": "YYYY-MM-DD or no release before october 31",
-          "gemini_flash_lite": 0.0,
-          "gemini_flash": 0.0,
-          "gemini_pro": 0.0,
-          "claude_sonnet": 0.0,
-          "claude_haiku": 0.0,
-          "claude_6": 0.0,
-          "gpt_terra": 0.0,
-          "gpt_astra": 0.0,
-          "gpt_7": 0.0
-        }}
-      ],
+      "model_anchors": {{
+        "gemini_flash_lite": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 12.0}},
+        "gemini_flash": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.5, "tail_pct": 14.0}},
+        "gemini_pro": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 15.0}},
+        "claude_sonnet": {{"peak_date": "YYYY-MM-DD", "spread_days": 2.5, "tail_pct": 10.0}},
+        "claude_haiku": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 12.0}},
+        "claude_6": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.5, "tail_pct": 35.0}},
+        "gpt_terra": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 16.0}},
+        "gpt_astra": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.5, "tail_pct": 20.0}},
+        "gpt_7": {{"peak_date": "YYYY-MM-DD", "spread_days": 5.0, "tail_pct": 55.0}}
+      }},
       "best_ai_2026_standings": [
         {{"company": "Anthropic", "implied_pct": 68.0}},
         {{"company": "OpenAI", "implied_pct": 22.0}},
         {{"company": "Google", "implied_pct": 10.0}}
       ],
-      "synthesis": "2 sentences synthesizing the competitive Q4 release convergence."
+      "synthesis": "2 concise sentences explaining the competitive Q4 release convergence."
     }}
     """
 
     try:
-        raw_text, active_model = execute_gemini_query(client, prompt)
+        raw_text, active_model = execute_gemini_interactions(client, prompt)
     except Exception as api_err:
-        return {"error": f"API generation failed across models: {str(api_err)}"}
+        return {"error": f"API execution failed: {str(api_err)}"}
 
     try:
         clean_text = raw_text.replace("```json", "").replace("```", "").strip()
         result = json.loads(clean_text)
     except Exception as pe:
-        return {"error": f"JSON parsing failed: {str(pe)}. Output snippet: {raw_text[:200]}"}
+        return {"error": f"JSON parsing failed: {str(pe)}. Raw snippet: {raw_text[:200]}"}
 
-    # Strict normalization across all 9 models (each sums to exactly 100.00%)
+    # Deterministic continuous probability calculation in Python
+    start_d = date(2026, 9, 23)
+    end_d = date(2026, 10, 31)
+    num_days = (end_d - start_d).days + 1
+    
+    date_labels = [(start_d + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(num_days)]
+    date_labels.append("no release before october 31")
+
+    anchors = result.get("model_anchors", {})
+    daily_table = {"date": date_labels}
+
     model_keys = [
         "gemini_flash_lite", "gemini_flash", "gemini_pro",
         "claude_sonnet", "claude_haiku", "claude_6",
         "gpt_terra", "gpt_astra", "gpt_7"
     ]
-    
-    distributions = result.get("daily_distributions", [])
-    if distributions:
-        for k in model_keys:
-            total = sum(float(item.get(k, 0.0)) for item in distributions)
-            if total > 0:
-                for item in distributions:
-                    item[k] = round((float(item.get(k, 0.0)) / total) * 100, 2)
-                diff = round(100.00 - sum(item[k] for item in distributions), 2)
-                distributions[-1][k] = round(distributions[-1][k] + diff, 2)
 
+    for k in model_keys:
+        m_spec = anchors.get(k, {"peak_date": "2026-10-15", "spread_days": 3.0, "tail_pct": 15.0})
+        p_date = m_spec.get("peak_date", "2026-10-15")
+        spread = float(m_spec.get("spread_days", 3.0))
+        tail = float(m_spec.get("tail_pct", 15.0))
+        
+        curve = build_discrete_density(p_date, spread, tail, start_d, end_d)
+        curve.append(round(tail, 2))
+        
+        # Enforce exact 100.00% normalization
+        tot = sum(curve)
+        if tot > 0:
+            curve = [round((v / tot) * 100.0, 2) for v in curve]
+            diff = round(100.00 - sum(curve), 2)
+            curve[-1] = round(curve[-1] + diff, 2)
+            
+        daily_table[k] = curve
+
+    result["daily_distributions"] = pd.DataFrame(daily_table)
     result["polymarket_raw"] = poly_data
     result["active_model"] = active_model
     result["refreshed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
     return result
 
 def get_peak_metric(df, col_name):
-    """Finds the true calendar peak dynamically without relying on brittle nested JSON keys."""
     if col_name in df.columns:
-        valid_days = df[df["date"] != "no release before october 31"]
-        if not valid_days.empty and valid_days[col_name].max() > 0:
-            idx = valid_days[col_name].idxmax()
-            return valid_days.loc[idx, "date"], round(float(valid_days.loc[idx, col_name]), 1)
+        valid = df[df["date"] != "no release before october 31"]
+        if not valid.empty and valid[col_name].max() > 0:
+            idx = valid[col_name].idxmax()
+            return valid.loc[idx, "date"], round(float(valid.loc[idx, col_name]), 1)
     return "Pending", 0.0
 
 # --- UI Execution ---
@@ -385,7 +401,7 @@ def get_peak_metric(df, col_name):
 st.title("🧬 Frontier AI & Longevity Horizon")
 st.caption("Live multi-lab prediction market synthesis mapping intelligence acceleration to personal autonomy and healthspan.")
 
-with st.spinner("Processing live order books and computing mathematical distributions across all 3 labs..."):
+with st.spinner("Harvesting live order books in parallel and calibrating continuous distributions..."):
     data = compute_macro_horizon()
 
 if "error" in data:
@@ -442,17 +458,17 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🔍 Raw Order Books"
 ])
 
+df_all = data["daily_distributions"]
+
 # --- TAB 1: Daily Release Radars Across All 3 Labs ---
 with tab1:
-    df_all = pd.DataFrame(data["daily_distributions"])
-    
     lab_tab_google, lab_tab_anthropic, lab_tab_openai = st.tabs([
         "🔵 Google (Gemini)", 
         "🟠 Anthropic (Claude)", 
         "🟢 OpenAI (GPT)"
     ])
     
-    # --- GOOGLE RADAR ---
+    # --- GOOGLE ---
     with lab_tab_google:
         st.subheader("Google DeepMind · Implied Release Windows")
         d_lite, p_lite = get_peak_metric(df_all, "gemini_flash_lite")
@@ -489,7 +505,7 @@ with tab1:
             "gemini_pro": "Pro (%)"
         }), use_container_width=True, height=360)
 
-    # --- ANTHROPIC RADAR ---
+    # --- ANTHROPIC ---
     with lab_tab_anthropic:
         st.subheader("Anthropic · Implied Release Windows")
         d_sonnet, p_sonnet = get_peak_metric(df_all, "claude_sonnet")
@@ -526,7 +542,7 @@ with tab1:
             "claude_6": "Claude 6 (%)"
         }), use_container_width=True, height=360)
 
-    # --- OPENAI RADAR ---
+    # --- OPENAI ---
     with lab_tab_openai:
         st.subheader("OpenAI · Implied Release Windows")
         d_terra, p_terra = get_peak_metric(df_all, "gpt_terra")
@@ -645,7 +661,7 @@ with tab4:
 
 # Footer
 st.divider()
-st.caption(f"Engine: Google AI Studio ({data.get('active_model', 'gemini-3.8-flash')}) · Polymarket Gamma API · Metaculus Epistemics · Last Calibrated: {data['refreshed_at']}")
+st.caption(f"Engine: Google AI Studio ({data.get('active_model', 'gemini-3.6-flash')}) · Polymarket Gamma API · Metaculus Epistemics · Last Calibrated: {data['refreshed_at']}")
 if st.button("Force Synchronized Market Recalculation"):
     st.cache_data.clear()
     st.rerun()
