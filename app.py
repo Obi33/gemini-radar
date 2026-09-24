@@ -241,21 +241,21 @@ def execute_gemini_interactions(client, prompt):
     raise RuntimeError("All candidate endpoints failed. Verify API key status.")
 
 def build_discrete_density(peak_date_str, spread_days, tail_pct, start_d, end_d):
-    """Calculates continuous density across calendar days without boundary artifacts."""
+    """Calculates continuous density across calendar days without artificial edge cliffs."""
     try:
         p_date = datetime.strptime(peak_date_str, "%Y-%m-%d").date()
     except Exception:
         p_date = start_d + timedelta(days=15)
         
     num_days = (end_d - start_d).days + 1
-    raw_weights = []
-    available_mass = max(1.0, 100.0 - float(tail_pct))
+    available_mass = max(0.5, 100.0 - float(tail_pct))
     
-    # If model is overwhelmingly a post-October release (e.g. GPT-7 / Claude 6 with tail >= 90%)
+    # Models with tail >= 90% (e.g. Claude 6, GPT-7) spread low residual mass evenly
     if float(tail_pct) >= 90.0:
         base_daily = round(available_mass / num_days, 3)
         return [base_daily] * num_days
     
+    raw_weights = []
     for i in range(num_days):
         curr_d = start_d + timedelta(days=i)
         diff = (curr_d - p_date).days
@@ -300,21 +300,20 @@ def compute_macro_horizon():
     LIVE POLYMARKET MARKET DATA:
     {json.dumps(poly_data, indent=2)}
 
-    REQUIRED TASKS:
-    Evaluate the order books and output calibration parameters for:
-    - Google: 
-        gemini_pro (peaks Oct 13-17, tail 15%), 
-        gemini_flash (peaks Oct 6-10, tail 14%), 
-        gemini_flash_lite (peaks Oct 2-6, tail 12%).
-    - Anthropic: 
-        claude_sonnet (peaks Sept 29 - Oct 3, tail 10%), 
-        claude_haiku (peaks Oct 5-9, tail 12%), 
-        claude_fable (Fable 5.2, peaks Oct 14-20, tail 18%),
-        claude_6 (Next-gen frontier: tail_pct MUST be 96.0% or higher. It is a 2027+ model).
-    - OpenAI: 
-        gpt_terra (Terra 5.7, peaks Oct 7-12, tail 16%), 
-        gpt_astra (Astra 6.1, peaks Oct 15-20, tail 20%), 
-        gpt_7 (True frontier leap: tail_pct MUST be 97.0% or higher. It is a 2027+ model).
+    MANDATORY QUANTITATIVE RULES:
+    1. PEAK SPREAD CRITERIA:
+       - Only assign a sharp near-term peak (spread_days <= 4.0) when market volume is high (> $50k) AND cumulative probability rises steeply in a 7-10 day window (e.g. Gemini Pro).
+    2. OPENAI CADENCE PRIOR:
+       - The full GPT-6 family (Astra, Sol, Luna) just completed deployment on September 22.
+       - Any 'Terra 5.7' or 'Astra 6.1' contracts are thin point-release markets.
+       - Give them wider spreads (spread_days >= 6.0) and elevated post-October tails (tail_pct >= 40.0).
+    3. FRONTIER ARCHITECTURAL LEAPS:
+       - Claude 6 and GPT-7 are multi-year frontier architectures (2027+ horizon).
+       - tail_pct MUST be 95.0% or higher.
+    4. MEDIAN ANCHORING:
+       - Prefer medians implied by the cumulative 'by date' contracts (the date where cumulative probability crosses 50%) rather than inventing point peaks.
+    5. UNCERTAINTY DEFAULT:
+       - When volume is low or books are thin, widen the spread and raise the post-October tail.
 
     Return strict JSON ONLY with this schema:
     {{
@@ -325,23 +324,23 @@ def compute_macro_horizon():
         "champion_odds_pct": 68.0
       }},
       "model_anchors": {{
-        "gemini_flash_lite": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 12.0}},
-        "gemini_flash": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.5, "tail_pct": 14.0}},
+        "gemini_flash_lite": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.5, "tail_pct": 20.0}},
+        "gemini_flash": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.0, "tail_pct": 18.0}},
         "gemini_pro": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 15.0}},
-        "claude_sonnet": {{"peak_date": "YYYY-MM-DD", "spread_days": 2.5, "tail_pct": 10.0}},
-        "claude_haiku": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 12.0}},
-        "claude_fable": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.5, "tail_pct": 18.0}},
-        "claude_6": {{"peak_date": "2027-04-15", "spread_days": 6.0, "tail_pct": 96.0}},
-        "gpt_terra": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 16.0}},
-        "gpt_astra": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.5, "tail_pct": 20.0}},
-        "gpt_7": {{"peak_date": "2027-06-30", "spread_days": 7.0, "tail_pct": 97.5}}
+        "claude_sonnet": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.5, "tail_pct": 15.0}},
+        "claude_haiku": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.0, "tail_pct": 20.0}},
+        "claude_fable": {{"peak_date": "YYYY-MM-DD", "spread_days": 5.0, "tail_pct": 30.0}},
+        "claude_6": {{"peak_date": "2027-04-15", "spread_days": 8.0, "tail_pct": 96.5}},
+        "gpt_terra": {{"peak_date": "YYYY-MM-DD", "spread_days": 6.0, "tail_pct": 45.0}},
+        "gpt_astra": {{"peak_date": "YYYY-MM-DD", "spread_days": 6.5, "tail_pct": 48.0}},
+        "gpt_7": {{"peak_date": "2027-06-30", "spread_days": 8.0, "tail_pct": 97.5}}
       }},
       "best_ai_2026_standings": [
         {{"company": "Anthropic", "implied_pct": 68.0}},
         {{"company": "OpenAI", "implied_pct": 22.0}},
         {{"company": "Google", "implied_pct": 10.0}}
       ],
-      "synthesis": "2 concise sentences explaining the competitive Q4 release convergence."
+      "synthesis": "2 concise sentences explaining the competitive release calibration."
     }}
     """
 
@@ -359,7 +358,6 @@ def compute_macro_horizon():
     start_d = date(2026, 9, 23)
     end_d = date(2026, 10, 31)
     num_days = (end_d - start_d).days + 1
-    
     date_labels = [(start_d + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(num_days)]
     
     anchors = result.get("model_anchors", {})
@@ -373,12 +371,21 @@ def compute_macro_horizon():
     ]
 
     for k in all_keys:
-        default_tail = 96.0 if k in ["claude_6", "gpt_7"] else 15.0
-        m_spec = anchors.get(k, {"peak_date": "2026-10-15", "spread_days": 3.0, "tail_pct": default_tail})
-        p_date = m_spec.get("peak_date", "2026-10-15")
-        spread = float(m_spec.get("spread_days", 3.0))
-        tail = float(m_spec.get("tail_pct", default_tail))
-        
+        spec = anchors.get(k, {})
+        p_date = spec.get("peak_date", "2026-10-15")
+        spread = float(spec.get("spread_days", 5.0))
+        tail = float(spec.get("tail_pct", 25.0))
+
+        # Hardcoded quantitative enforcement of your 5 rules
+        if k in ["claude_6", "gpt_7"]:
+            tail = max(tail, 95.0)
+            spread = max(spread, 7.0)
+        elif k in ["gpt_terra", "gpt_astra"]:
+            spread = max(spread, 6.0)
+            tail = max(tail, 40.0)
+        elif k == "gemini_pro":
+            spread = min(max(spread, 2.5), 4.0)
+
         curve = build_discrete_density(p_date, spread, tail, start_d, end_d)
         daily_table[k] = curve
         tail_summary[k] = round(tail, 1)
@@ -391,7 +398,6 @@ def compute_macro_horizon():
     return result
 
 def get_calibrated_peak(df, tail_val, col_name):
-    """Accurately distinguishes near-term calendar peaks from post-October horizon models."""
     if float(tail_val) >= 75.0:
         return "Post-October 31", f"{tail_val}% Post-Oct Tail"
     
@@ -507,7 +513,6 @@ with tab1:
         
         st.caption(f"Post-October 31 Tail Probability: Flash-Lite: {tails['gemini_flash_lite']}% | Flash: {tails['gemini_flash']}% | Pro: {tails['gemini_pro']}%")
         
-        # Build clean table with tail row
         table_g = df_daily[["date", "gemini_flash_lite", "gemini_flash", "gemini_pro"]].copy()
         tail_row_g = pd.DataFrame([{
             "date": "Post-October 31 (Tail)",
@@ -621,17 +626,26 @@ with tab2:
     col_summary, col_pie = st.columns([3, 2])
     
     with col_summary:
+        d_glite, _ = get_calibrated_peak(df_daily, tails["gemini_flash_lite"], "gemini_flash_lite")
+        d_gflash, _ = get_calibrated_peak(df_daily, tails["gemini_flash"], "gemini_flash")
+        d_gpro, _ = get_calibrated_peak(df_daily, tails["gemini_pro"], "gemini_pro")
+        d_asonnet, _ = get_calibrated_peak(df_daily, tails["claude_sonnet"], "claude_sonnet")
+        d_ahaiku, _ = get_calibrated_peak(df_daily, tails["claude_haiku"], "claude_haiku")
+        d_afable, _ = get_calibrated_peak(df_daily, tails["claude_fable"], "claude_fable")
+        d_oterra, _ = get_calibrated_peak(df_daily, tails["gpt_terra"], "gpt_terra")
+        d_oastra, _ = get_calibrated_peak(df_daily, tails["gpt_astra"], "gpt_astra")
+        
         summary_rows = [
-            {"Lab": "Google", "Model": "Gemini Flash-Lite (3.6+)", "Window": d_lite, "Status": "Near-term distillation"},
-            {"Lab": "Google", "Model": "Gemini Flash (3.9+ / 4.0)", "Window": d_flash, "Status": "Low-latency multimodal"},
-            {"Lab": "Google", "Model": "Gemini Pro", "Window": d_pro, "Status": "Frontier agentic flagship"},
-            {"Lab": "Anthropic", "Model": "Next Claude Sonnet", "Window": d_sonnet, "Status": "Autonomous software standard"},
-            {"Lab": "Anthropic", "Model": "Next Claude Haiku", "Window": d_haiku, "Status": "Cost-efficient tool use"},
-            {"Lab": "Anthropic", "Model": "Claude Fable 5.2", "Window": d_fable, "Status": "Specialized reasoning checkpoint"},
-            {"Lab": "Anthropic", "Model": "Claude 6", "Window": "2027+ Horizon", "Status": "Next-gen epistemic leap (96% Post-Oct)"},
-            {"Lab": "OpenAI", "Model": "GPT-Terra 5.7", "Window": d_terra, "Status": "Developer workflow update"},
-            {"Lab": "OpenAI", "Model": "GPT-Astra 6.1", "Window": d_astra, "Status": "Test-time compute & planning"},
-            {"Lab": "OpenAI", "Model": "GPT-7", "Window": "2027+ Horizon", "Status": "Autonomous research frontier (97% Post-Oct)"}
+            {"Lab": "Google", "Model": "Gemini Flash-Lite (3.6+)", "Window": d_glite, "Status": "Near-term distillation"},
+            {"Lab": "Google", "Model": "Gemini Flash (3.9+ / 4.0)", "Window": d_gflash, "Status": "Multimodal speed milestone"},
+            {"Lab": "Google", "Model": "Gemini Pro", "Window": d_gpro, "Status": "Frontier agentic flagship"},
+            {"Lab": "Anthropic", "Model": "Next Claude Sonnet", "Window": d_asonnet, "Status": "Autonomous software standard"},
+            {"Lab": "Anthropic", "Model": "Next Claude Haiku", "Window": d_ahaiku, "Status": "Tool execution model"},
+            {"Lab": "Anthropic", "Model": "Claude Fable 5.2", "Window": d_afable, "Status": "Specialized reasoning checkpoint"},
+            {"Lab": "Anthropic", "Model": "Claude 6", "Window": "2027+ Horizon", "Status": f"Frontier leap ({tails['claude_6']}% Post-Oct)"},
+            {"Lab": "OpenAI", "Model": "GPT-Terra 5.7", "Window": d_oterra, "Status": "Iterative checkpoint (wide spread)"},
+            {"Lab": "OpenAI", "Model": "GPT-Astra 6.1", "Window": d_oastra, "Status": "Point release (wide spread)"},
+            {"Lab": "OpenAI", "Model": "GPT-7", "Window": "2027+ Horizon", "Status": f"Frontier leap ({tails['gpt_7']}% Post-Oct)"}
         ]
         st.dataframe(pd.DataFrame(summary_rows), use_container_width=True)
 
@@ -653,7 +667,7 @@ with tab2:
                 legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
             )
             st.plotly_chart(fig_pie, use_container_width=True)
-            st.caption("Resolves via Arena.ai Blind Leaderboard & Artificial Analysis index at midnight Dec 31, 2026.")
+            st.caption("Resolves via Arena.ai Blind Leaderboard and Artificial Analysis index at midnight Dec 31, 2026.")
 
 # --- TAB 3: Metaculus Epistemic Horizon ---
 with tab3:
