@@ -16,9 +16,9 @@ from google import genai
 from google.genai import types
 
 st.set_page_config(
-    page_title="Frontier Horizon | FIRE, LEV & Intelligence Acceleration", 
+    page_title="Frontier Horizon | FIRE, LEV & Personal Intelligence Nexus", 
     page_icon="🧬", 
-    layout="wide",
+    layout="wide", 
     initial_sidebar_state="collapsed"
 )
 
@@ -81,12 +81,25 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Personal Actuarial & Financial Calibration Constants
+USER_DOB = date(2003, 12, 1)
+FIRE_TARGET_MILESTONE_HUF = 60_000_000
+ACTUARIAL_BASELINE_AGE = 75.0
+GINOP_NET_STIPEND_MONTHLY = 245_000
+NEVELESI_ELLATAS_MONTHLY = 20_300
+
 def get_budapest_now():
     try:
         tz = zoneinfo.ZoneInfo("Europe/Budapest")
         return datetime.now(tz)
     except Exception:
         return datetime.now(timezone(timedelta(hours=2)))
+
+def get_user_exact_age(ref_date=None):
+    if not ref_date:
+        ref_date = get_budapest_now().date()
+    days = (ref_date - USER_DOB).days
+    return round(days / 365.2425, 2)
 
 POLYMARKET_EVENTS = [
     {"slug": "when-will-the-next-google-gemini-pro-model-be-released-20260817144359068", "entity": "Google", "label": "Gemini Pro"},
@@ -190,33 +203,33 @@ STATIC_ALAN_50_INDICATORS = [
 def get_default_calibrated_payload():
     return {
         "executive_metrics": {
-            "fire_deflation_score": 86,
-            "lev_acceleration_score": 79,
-            "fire_compression_months": 10,
-            "lev_compression_months": 14,
+            "fire_deflation_score": 88,
+            "lev_acceleration_score": 82,
+            "fire_compression_months": 11,
+            "lev_compression_months": 15,
             "alan_agi_pct": 99.0,
             "alan_agi_completion_date": "2026-12-15"
         },
         "model_anchors": {
-            "gemini_flash_lite": {"peak_date": "2026-10-04", "spread_days": 4.5, "tail_pct": 12.0, "net_personal_effect": 18},
-            "gemini_flash": {"peak_date": "2026-10-09", "spread_days": 4.0, "tail_pct": 14.0, "net_personal_effect": 22},
-            "gemini_pro": {"peak_date": "2026-10-16", "spread_days": 3.0, "tail_pct": 15.0, "net_personal_effect": 55},
-            "claude_sonnet": {"peak_date": "2026-10-01", "spread_days": 3.0, "tail_pct": 10.0, "net_personal_effect": 48},
-            "claude_haiku": {"peak_date": "2026-10-07", "spread_days": 4.0, "tail_pct": 12.0, "net_personal_effect": 15},
-            "claude_opus": {"peak_date": "2026-10-24", "spread_days": 4.5, "tail_pct": 25.0, "net_personal_effect": 42},
-            "claude_fable": {"peak_date": "2026-10-17", "spread_days": 4.0, "tail_pct": 18.0, "net_personal_effect": 26},
-            "claude_6": {"peak_date": "2027-04-15", "spread_days": 8.0, "tail_pct": 96.5, "net_personal_effect": 78},
-            "gpt_terra": {"peak_date": "2026-10-10", "spread_days": 6.0, "tail_pct": 42.0, "net_personal_effect": 16},
-            "gpt_astra": {"peak_date": "2026-10-18", "spread_days": 6.5, "tail_pct": 45.0, "net_personal_effect": 30},
-            "gpt_sol": {"peak_date": "2026-10-24", "spread_days": 6.5, "tail_pct": 48.0, "net_personal_effect": 24},
-            "gpt_luna": {"peak_date": "2026-10-28", "spread_days": 7.0, "tail_pct": 50.0, "net_personal_effect": 20},
-            "gpt_7": {"peak_date": "2027-06-30", "spread_days": 8.0, "tail_pct": 97.5, "net_personal_effect": 85}
+            "gemini_flash_lite": {"peak_date": "2026-10-04", "spread_days": 4.5, "tail_pct": 12.0, "net_personal_effect": 20},
+            "gemini_flash": {"peak_date": "2026-10-09", "spread_days": 4.0, "tail_pct": 14.0, "net_personal_effect": 24},
+            "gemini_pro": {"peak_date": "2026-10-16", "spread_days": 3.0, "tail_pct": 15.0, "net_personal_effect": 60},
+            "claude_sonnet": {"peak_date": "2026-10-01", "spread_days": 3.0, "tail_pct": 10.0, "net_personal_effect": 52},
+            "claude_haiku": {"peak_date": "2026-10-07", "spread_days": 4.0, "tail_pct": 12.0, "net_personal_effect": 16},
+            "claude_opus": {"peak_date": "2026-10-24", "spread_days": 4.5, "tail_pct": 25.0, "net_personal_effect": 45},
+            "claude_fable": {"peak_date": "2026-10-17", "spread_days": 4.0, "tail_pct": 18.0, "net_personal_effect": 28},
+            "claude_6": {"peak_date": "2027-04-15", "spread_days": 8.0, "tail_pct": 96.5, "net_personal_effect": 82},
+            "gpt_terra": {"peak_date": "2026-10-10", "spread_days": 6.0, "tail_pct": 42.0, "net_personal_effect": 18},
+            "gpt_astra": {"peak_date": "2026-10-18", "spread_days": 6.5, "tail_pct": 45.0, "net_personal_effect": 32},
+            "gpt_sol": {"peak_date": "2026-10-24", "spread_days": 6.5, "tail_pct": 48.0, "net_personal_effect": 26},
+            "gpt_luna": {"peak_date": "2026-10-28", "spread_days": 7.0, "tail_pct": 50.0, "net_personal_effect": 22},
+            "gpt_7": {"peak_date": "2027-06-30", "spread_days": 8.0, "tail_pct": 97.5, "net_personal_effect": 88}
         },
         "geopolitics_scenarios": [
             {"event": "French Presidential Election", "outcome": "National Rally / Bardella Victory", "probability_pct": 46.0, "net_personal_effect": -24, "transmission": "EU budget friction, EUR weakness vs USD, trade friction impacting Hungarian exports and currency stability."},
             {"event": "French Presidential Election", "outcome": "Centrist / Pro-European Coalition", "probability_pct": 38.0, "net_personal_effect": 18, "transmission": "Single market integrity preserved, defense procurement compounding, stable EU tech framework."},
             {"event": "French Presidential Election", "outcome": "New Popular Front (Left Coalition)", "probability_pct": 16.0, "net_personal_effect": -12, "transmission": "Increased corporate wealth taxes on CAC 40 multinationals, regulatory caution on compute infrastructure."},
-            {"event": "US 2026 Midterms", "outcome": "Split Congress (Gridlock: GOP Senate / Dem House)", "probability_pct": 52.0, "net_personal_effect": 22, "transmission": "Peak regulatory stability: no disruptive tax hikes or antitrust breakups, optimal for continuous VUAA compounding."},
+            {"event": "US 2026 Midterms", "outcome": "Split Congress (Gridlock: GOP Senate / Dem House)", "probability_pct": 52.0, "net_personal_effect": 24, "transmission": "Peak regulatory stability: no disruptive tax hikes or antitrust breakups, optimal for continuous VUAA compounding inside TBSZ."},
             {"event": "US 2026 Midterms", "outcome": "Republican Unified Sweep", "probability_pct": 32.0, "net_personal_effect": 12, "transmission": "Corporate tax reductions and deregulated compute buildouts offset by aggressive tariff pressure on European trade."},
             {"event": "US 2026 Midterms", "outcome": "Democratic Unified Sweep", "probability_pct": 14.0, "net_personal_effect": -8, "transmission": "Aggressive frontier model liability frameworks and antitrust scrutiny on hyperscalers."}
         ],
@@ -229,7 +242,7 @@ def get_default_calibrated_payload():
             {"problem": "P versus NP Problem", "credible_solution_date": "2030-04-10", "probability_pct": 44.0, "primary_contender": "Recursive ASI Systems", "breakthrough_impact": "Universal optimization, computational limits, and cognitive automation"},
             {"problem": "General Frontier Math (Erdos / Collatz)", "credible_solution_date": "2026-12-10", "probability_pct": 95.0, "primary_contender": "Lean 4 Autoformalization Clusters", "breakthrough_impact": "Continuous automated peer-reviewed proof synthesis"}
         ],
-        "synthesis": "The multi-lab release wave concentrates frontier reasoning in Q4 2026, pulling forward autonomous code generation and accelerating capital compounding inside tax-sheltered global equities."
+        "synthesis": "The multi-lab release wave concentrates frontier reasoning in Q4 2026, pulling forward autonomous code generation, eliminating cognitive tooling costs, and accelerating capital compounding inside your tax-sheltered Lightyear TBSZ."
     }
 
 def fetch_single_event(item):
@@ -378,8 +391,11 @@ def execute_pipeline(progress_bar, status_text):
         client = genai.Client(api_key=api_key)
         prompt = f"""
         You are a headless quantitative engine.
-        Current Date: Late September 2026.
-        User Profile: European / Hungarian investor (holding TBSZ / VUAA global equity index ETF, targeting perpetual FIRE and biological Longevity Escape Velocity LEV).
+        Current Date: September 2026.
+        User Profile: Hungarian tech professional and investor, born December 1, 2003 (turning 23 late 2026).
+        Financial Framework: Compounding global equity index ETF (VUAA) inside a Lightyear TBSZ (Tartos Befektetesi Szamla) account, targeting a 60,000,000 HUF liquid milestone.
+        Cash Flow Infrastructure: Receives monthly nevelesi ellatas (20,300 HUF) and GINOP Plusz-4.1.1-23 vocational training net stipend (245,000 HUF/month ÁÖJ), with zero transit expenditure via Government Decree 38/2024.
+        Longevity Goal: Reaching biological Longevity Escape Velocity (LEV) in mid-2036, well ahead of the Hungarian actuarial baseline (December 2078, age 75).
 
         LIVE POLYMARKET MARKET DATA:
         {json.dumps(poly_data, indent=2)}
@@ -401,33 +417,33 @@ def execute_pipeline(progress_bar, status_text):
         Return ONLY raw valid JSON matching this schema:
         {{
           "executive_metrics": {{
-            "fire_deflation_score": 86,
-            "lev_acceleration_score": 79,
-            "fire_compression_months": 10,
-            "lev_compression_months": 14,
+            "fire_deflation_score": 88,
+            "lev_acceleration_score": 82,
+            "fire_compression_months": 11,
+            "lev_compression_months": 15,
             "alan_agi_pct": 99.0,
             "alan_agi_completion_date": "2026-12-15"
           }},
           "model_anchors": {{
-            "gemini_flash_lite": {{"peak_date": "2026-10-04", "spread_days": 4.5, "tail_pct": 12.0, "net_personal_effect": 18}},
-            "gemini_flash": {{"peak_date": "2026-10-09", "spread_days": 4.0, "tail_pct": 14.0, "net_personal_effect": 22}},
-            "gemini_pro": {{"peak_date": "2026-10-16", "spread_days": 3.0, "tail_pct": 15.0, "net_personal_effect": 55}},
-            "claude_sonnet": {{"peak_date": "2026-10-01", "spread_days": 3.0, "tail_pct": 10.0, "net_personal_effect": 48}},
-            "claude_haiku": {{"peak_date": "2026-10-07", "spread_days": 4.0, "tail_pct": 12.0, "net_personal_effect": 15}},
-            "claude_opus": {{"peak_date": "2026-10-24", "spread_days": 4.5, "tail_pct": 25.0, "net_personal_effect": 42}},
-            "claude_fable": {{"peak_date": "2026-10-17", "spread_days": 4.0, "tail_pct": 18.0, "net_personal_effect": 26}},
-            "claude_6": {{"peak_date": "2027-04-15", "spread_days": 8.0, "tail_pct": 96.5, "net_personal_effect": 78}},
-            "gpt_terra": {{"peak_date": "2026-10-10", "spread_days": 6.0, "tail_pct": 42.0, "net_personal_effect": 16}},
-            "gpt_astra": {{"peak_date": "2026-10-18", "spread_days": 6.5, "tail_pct": 45.0, "net_personal_effect": 30}},
-            "gpt_sol": {{"peak_date": "2026-10-24", "spread_days": 6.5, "tail_pct": 48.0, "net_personal_effect": 24}},
-            "gpt_luna": {{"peak_date": "2026-10-28", "spread_days": 7.0, "tail_pct": 50.0, "net_personal_effect": 20}},
-            "gpt_7": {{"peak_date": "2027-06-30", "spread_days": 8.0, "tail_pct": 97.5, "net_personal_effect": 85}}
+            "gemini_flash_lite": {{"peak_date": "2026-10-04", "spread_days": 4.5, "tail_pct": 12.0, "net_personal_effect": 20}},
+            "gemini_flash": {{"peak_date": "2026-10-09", "spread_days": 4.0, "tail_pct": 14.0, "net_personal_effect": 24}},
+            "gemini_pro": {{"peak_date": "2026-10-16", "spread_days": 3.0, "tail_pct": 15.0, "net_personal_effect": 60}},
+            "claude_sonnet": {{"peak_date": "2026-10-01", "spread_days": 3.0, "tail_pct": 10.0, "net_personal_effect": 52}},
+            "claude_haiku": {{"peak_date": "2026-10-07", "spread_days": 4.0, "tail_pct": 12.0, "net_personal_effect": 16}},
+            "claude_opus": {{"peak_date": "2026-10-24", "spread_days": 4.5, "tail_pct": 25.0, "net_personal_effect": 45}},
+            "claude_fable": {{"peak_date": "2026-10-17", "spread_days": 4.0, "tail_pct": 18.0, "net_personal_effect": 28}},
+            "claude_6": {{"peak_date": "2027-04-15", "spread_days": 8.0, "tail_pct": 96.5, "net_personal_effect": 82}},
+            "gpt_terra": {{"peak_date": "2026-10-10", "spread_days": 6.0, "tail_pct": 42.0, "net_personal_effect": 18}},
+            "gpt_astra": {{"peak_date": "2026-10-18", "spread_days": 6.5, "tail_pct": 45.0, "net_personal_effect": 32}},
+            "gpt_sol": {{"peak_date": "2026-10-24", "spread_days": 6.5, "tail_pct": 48.0, "net_personal_effect": 26}},
+            "gpt_luna": {{"peak_date": "2026-10-28", "spread_days": 7.0, "tail_pct": 50.0, "net_personal_effect": 22}},
+            "gpt_7": {{"peak_date": "2027-06-30", "spread_days": 8.0, "tail_pct": 97.5, "net_personal_effect": 88}}
           }},
           "geopolitics_scenarios": [
             {{"event": "French Presidential Election", "outcome": "National Rally / Bardella Victory", "probability_pct": 46.0, "net_personal_effect": -24, "transmission": "EU budget friction, EUR weakness vs USD, trade friction impacting Hungarian exports and currency stability."}},
             {{"event": "French Presidential Election", "outcome": "Centrist / Pro-European Coalition", "probability_pct": 38.0, "net_personal_effect": 18, "transmission": "Single market integrity preserved, defense procurement compounding, stable EU tech framework."}},
             {{"event": "French Presidential Election", "outcome": "New Popular Front (Left Coalition)", "probability_pct": 16.0, "net_personal_effect": -12, "transmission": "Increased corporate wealth taxes on CAC 40 multinationals, regulatory caution on compute infrastructure."}},
-            {{"event": "US 2026 Midterms", "outcome": "Split Congress (Gridlock: GOP Senate / Dem House)", "probability_pct": 52.0, "net_personal_effect": 22, "transmission": "Peak regulatory stability: no disruptive tax hikes or antitrust breakups, optimal for continuous VUAA compounding."}},
+            {{"event": "US 2026 Midterms", "outcome": "Split Congress (Gridlock: GOP Senate / Dem House)", "probability_pct": 52.0, "net_personal_effect": 24, "transmission": "Peak regulatory stability: no disruptive tax hikes or antitrust breakups, optimal for continuous VUAA compounding inside TBSZ."}},
             {{"event": "US 2026 Midterms", "outcome": "Republican Unified Sweep", "probability_pct": 32.0, "net_personal_effect": 12, "transmission": "Corporate tax reductions and deregulated compute buildouts offset by aggressive tariff pressure on European trade."}},
             {{"event": "US 2026 Midterms", "outcome": "Democratic Unified Sweep", "probability_pct": 14.0, "net_personal_effect": -8, "transmission": "Aggressive frontier model liability frameworks and antitrust scrutiny on hyperscalers."}}
           ],
@@ -440,7 +456,7 @@ def execute_pipeline(progress_bar, status_text):
             {{"problem": "P versus NP Problem", "credible_solution_date": "2030-04-10", "probability_pct": 44.0, "primary_contender": "Recursive ASI Systems", "breakthrough_impact": "Universal optimization, computational limits, and cognitive automation"}},
             {{"problem": "General Frontier Math (Erdos / Collatz)", "credible_solution_date": "2026-12-10", "probability_pct": 95.0, "primary_contender": "Lean 4 Autoformalization Clusters", "breakthrough_impact": "Continuous automated peer-reviewed proof synthesis"}}
           ],
-          "synthesis": "The multi-lab release wave concentrates frontier reasoning in Q4 2026, pulling forward autonomous code generation and accelerating capital compounding inside tax-sheltered global equities."
+          "synthesis": "The multi-lab release wave concentrates frontier reasoning in Q4 2026, pulling forward autonomous code generation, eliminating cognitive tooling costs, and accelerating capital compounding inside your tax-sheltered Lightyear TBSZ."
         }}
         """
         raw_text, detected_model = execute_gemini_guaranteed(client, prompt)
@@ -550,8 +566,9 @@ def calculate_countdown(target_datetime):
     return f"{days}d {hours}h {minutes}m"
 
 # --- Main Layout ---
+current_age = get_user_exact_age()
 st.title("🧬 Frontier Horizon | Intelligence, Capital & LEV")
-st.caption("Strategic Bayesian nexus connecting multi-lab model releases, macro geopolitics, and mathematical breakthroughs directly to your FIRE and Longevity Escape Velocity horizon.")
+st.caption(f"Personalized Strategic Bayesian nexus for Oláh Benedek (Age {current_age}) · Connecting multi-lab model releases, macro geopolitics, and mathematical breakthroughs to your Lightyear TBSZ VUAA portfolio and Longevity Escape Velocity horizon.")
 
 data = get_or_run_data(force=False)
 
@@ -563,8 +580,8 @@ with c1:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">FIRE Deflation Score</div>
-        <div class="metric-value">{exec_m.get('fire_deflation_score', 86)}/100</div>
-        <div class="metric-delta">Cognitive Automation & Asset Compounding</div>
+        <div class="metric-value">{exec_m.get('fire_deflation_score', 88)}/100</div>
+        <div class="metric-delta">Target: 60M HUF Milestone (TBSZ)</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -572,8 +589,8 @@ with c2:
     st.markdown(f"""
     <div class="metric-card">
         <div class="metric-title">LEV Acceleration Index</div>
-        <div class="metric-value">{exec_m.get('lev_acceleration_score', 79)}/100</div>
-        <div class="metric-delta">Biomedical Rejuvenation Horizon</div>
+        <div class="metric-value">{exec_m.get('lev_acceleration_score', 82)}/100</div>
+        <div class="metric-delta">Target: Mid 2036 (Age 32.8)</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -589,18 +606,19 @@ with c3:
 with c4:
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-title">Metaculus Full AGI Consensus</div>
-        <div class="metric-value">May 2028</div>
-        <div class="metric-delta">Epistemic Crowd Median (Q5121)</div>
+        <div class="metric-title">Current Age & Actuarial Margin</div>
+        <div class="metric-value">{current_age} Years</div>
+        <div class="metric-delta">42.2y Buffer to 2078 Baseline</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.info(data.get("synthesis", ""))
 
-# 2. Six Strategy Tabs (Chronological pipeline placed immediately after radars)
-tab1, tab_chrono, tab2, tab3, tab4, tab5 = st.tabs([
+# 2. Strategy Tabs
+tab1, tab_chrono, tab_wealth, tab2, tab3, tab4, tab5 = st.tabs([
     "⚡ Frontier Release Radars", 
     "📅 Chronological Release Pipeline",
+    "💰 TBSZ & FIRE Compounding Engine",
     "🧬 Personal Timeline: FIRE, LEV & Mortality", 
     "🏛️ Geopolitics & Personal Impact", 
     "🧠 Alan Thompson Milestones & Millennium Math", 
@@ -637,13 +655,13 @@ with tab1:
         col_g1, col_g2, col_g3 = st.columns(3)
         with col_g1:
             st.metric("Gemini Flash-Lite (3.6+)", d_lite, p_lite)
-            st.caption(f"Net Personal Impact: **+{effects.get('gemini_flash_lite', 18)}%** (API efficiency)")
+            st.caption(f"Net Personal Impact: **+{effects.get('gemini_flash_lite', 20)}%** (Local API scripting throughput)")
         with col_g2:
             st.metric("Gemini Flash (3.9+ / 4.0)", d_flash, p_flash)
-            st.caption(f"Net Personal Impact: **+{effects.get('gemini_flash', 22)}%** (Multimodal speed)")
+            st.caption(f"Net Personal Impact: **+{effects.get('gemini_flash', 24)}%** (Live multimodal voice & camera parser)")
         with col_g3:
             st.metric("Gemini Pro (Daily Driver)", d_pro, p_pro)
-            st.caption(f"Net Personal Impact: **+{effects.get('gemini_pro', 55)}%** (Pro Subscription core brain)")
+            st.caption(f"Net Personal Impact: **+{effects.get('gemini_pro', 60)}%** (Primary thinking partner & code engine)")
             
         fig_g = go.Figure()
         fig_g.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gemini_flash_lite"], mode="lines+markers", name="Flash-Lite (3.6+)", line=dict(color="#38bdf8", width=2.5)))
@@ -671,16 +689,16 @@ with tab1:
         col_a1, col_a2, col_a3, col_a4 = st.columns(4)
         with col_a1:
             st.metric("Next Claude Sonnet", d_sonnet, p_sonnet)
-            st.caption(f"Personal Impact: **+{effects.get('claude_sonnet', 48)}%**")
+            st.caption(f"Personal Impact: **+{effects.get('claude_sonnet', 52)}%** (Webfejlesztő coding agent)")
         with col_a2:
             st.metric("Next Claude Haiku", d_haiku, p_haiku)
-            st.caption(f"Personal Impact: **+{effects.get('claude_haiku', 15)}%**")
+            st.caption(f"Personal Impact: **+{effects.get('claude_haiku', 16)}%** (Sub-agent router)")
         with col_a3:
             st.metric("Next Claude Opus", d_opus, p_opus)
-            st.caption(f"Personal Impact: **+{effects.get('claude_opus', 42)}%**")
+            st.caption(f"Personal Impact: **+{effects.get('claude_opus', 45)}%** (Deep analytical architecture)")
         with col_a4:
             st.metric("Claude Fable 5.2", d_fable, p_fable)
-            st.caption(f"Personal Impact: **+{effects.get('claude_fable', 26)}%**")
+            st.caption(f"Personal Impact: **+{effects.get('claude_fable', 28)}%** (Structured systems analysis)")
             
         fig_a = go.Figure()
         fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_sonnet"], mode="lines+markers", name="Next Sonnet", line=dict(color="#f59e0b", width=2.5)))
@@ -709,16 +727,16 @@ with tab1:
         col_o1, col_o2, col_o3, col_o4 = st.columns(4)
         with col_o1:
             st.metric("GPT-Terra 5.7", d_terra, p_terra)
-            st.caption(f"Personal Impact: **+{effects.get('gpt_terra', 16)}%**")
+            st.caption(f"Personal Impact: **+{effects.get('gpt_terra', 18)}%**")
         with col_o2:
             st.metric("GPT-Astra 6.1", d_astra, p_astra)
-            st.caption(f"Personal Impact: **+{effects.get('gpt_astra', 30)}%**")
+            st.caption(f"Personal Impact: **+{effects.get('gpt_astra', 32)}%**")
         with col_o3:
             st.metric("GPT-Sol 6.1", d_sol, p_sol)
-            st.caption(f"Personal Impact: **+{effects.get('gpt_sol', 24)}%**")
+            st.caption(f"Personal Impact: **+{effects.get('gpt_sol', 26)}%**")
         with col_o4:
             st.metric("GPT-Luna 6.1", d_luna, p_luna)
-            st.caption(f"Personal Impact: **+{effects.get('gpt_luna', 20)}%**")
+            st.caption(f"Personal Impact: **+{effects.get('gpt_luna', 22)}%**")
             
         fig_o = go.Figure()
         fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_terra"], mode="lines+markers", name="GPT-Terra 5.7", line=dict(color="#10b981", width=2.5)))
@@ -734,12 +752,12 @@ with tab1:
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_o, config=chart_config)
-        st.caption(f"Post-October 31 Tail (Rule 2 Wide Spread): Terra: {tails['gpt_terra']}% | Astra: {tails['gpt_astra']}% | Sol: {tails['gpt_sol']}% | Luna: {tails['gpt_luna']}%")
+        st.caption(f"Post-October 31 Tail: Terra: {tails['gpt_terra']}% | Astra: {tails['gpt_astra']}% | Sol: {tails['gpt_sol']}% | Luna: {tails['gpt_luna']}%")
 
     # --- FRONTIER 2027+ ---
     with lab_frontier:
         st.subheader("🌌 Multi-Year Frontier Architectural Leaps (2027+ Horizon)")
-        st.caption("True paradigm shifts governed by Rule 3: strictly anchored to post-October tail probabilities (≥ 95%).")
+        st.caption("Paradigm shifts anchored to post-October tail probabilities (≥ 95%).")
         
         col_f1, col_f2 = st.columns(2)
         with col_f1:
@@ -747,10 +765,10 @@ with tab1:
             <div class="metric-card">
                 <div class="metric-title">Anthropic Frontier Flagship</div>
                 <div class="metric-value">Claude 6</div>
-                <div class="metric-delta">Most Likely Horizon: Q2 2027 · {tails['claude_6']}% Post-Oct Tail</div>
+                <div class="metric-delta">Horizon: Q2 2027 · {tails['claude_6']}% Post-Oct Tail</div>
                 <div style="margin-top: 0.75rem; font-size: 0.88rem; color: #d1d5db;">
-                    <strong>Net Personal Impact:</strong> <span style="color:#10b981; font-weight:700;">+{effects.get('claude_6', 78)}%</span><br>
-                    Next-generation epistemic reasoning architecture, autonomous multi-step software synthesis, and massive biological simulation compression.
+                    <strong>Net Personal Impact:</strong> <span style="color:#10b981; font-weight:700;">+{effects.get('claude_6', 82)}%</span><br>
+                    Autonomous multi-step software synthesis and massive biological simulation compression.
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -759,10 +777,10 @@ with tab1:
             <div class="metric-card">
                 <div class="metric-title">OpenAI Frontier Flagship</div>
                 <div class="metric-value">GPT-7</div>
-                <div class="metric-delta">Most Likely Horizon: Mid 2027 · {tails['gpt_7']}% Post-Oct Tail</div>
+                <div class="metric-delta">Horizon: Mid 2027 · {tails['gpt_7']}% Post-Oct Tail</div>
                 <div style="margin-top: 0.75rem; font-size: 0.88rem; color: #d1d5db;">
-                    <strong>Net Personal Impact:</strong> <span style="color:#10b981; font-weight:700;">+{effects.get('gpt_7', 85)}%</span><br>
-                    Universal self-directed research agent, autonomous mathematical proof engine, and the definitive catalyst pulling forward AGI and LEV.
+                    <strong>Net Personal Impact:</strong> <span style="color:#10b981; font-weight:700;">+{effects.get('gpt_7', 88)}%</span><br>
+                    Universal self-directed research agent, autonomous mathematical proof solver, and definitive catalyst pulling forward AGI and LEV.
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -770,7 +788,7 @@ with tab1:
 # --- TAB 2: Chronological Release Pipeline ---
 with tab_chrono:
     st.subheader("📅 Chronological Frontier Model Release Pipeline")
-    st.caption("All 13 monitored models dynamically sequenced by expected release date from nearest drop to 2027+ frontier horizons.")
+    st.caption("All 13 monitored models sequenced by expected release date from nearest drop to 2027+ frontier horizons.")
 
     now_date = get_budapest_now().date()
     chrono_rows = []
@@ -815,7 +833,6 @@ with tab_chrono:
     chrono_df = pd.DataFrame(chrono_rows).sort_values(by="_sort_date").reset_index(drop=True)
     chrono_df.insert(0, "Order", [f"#{i+1}" for i in range(len(chrono_df))])
 
-    # Horizontal sequence chart
     fig_chrono = go.Figure()
     for idx, row in chrono_df.iterrows():
         c = "#38bdf8" if "Google" in row["Lab"] else ("#f59e0b" if "Anthropic" in row["Lab"] else "#10b981")
@@ -843,22 +860,106 @@ with tab_chrono:
     st.subheader("📋 Sequenced Master Pipeline Breakdown")
     st.dataframe(chrono_df.drop(columns=["_sort_date"]))
 
-# --- TAB 3: Personal Timeline ---
+# --- TAB 3: Personal Wealth & TBSZ Compounding Engine ---
+with tab_wealth:
+    st.subheader("💰 Lightyear TBSZ Portfolio & 60M HUF Milestone Simulator")
+    st.caption("Quantitative compound growth modeling for VUAA (S&P 500 UCITS ETF) under Hungarian 0% capital gains tax status.")
+
+    col_w1, col_w2 = st.columns([1, 2])
+    with col_w1:
+        st.markdown("#### Input Calibration")
+        current_tbsz = st.number_input("Current TBSZ Balance (HUF)", min_value=0, max_value=50_000_000, value=2_500_000, step=100_000)
+        base_monthly = st.number_input("Base Monthly Savings (HUF)", min_value=0, max_value=2_000_000, value=120_000, step=10_000)
+        
+        include_ginop = st.checkbox("Include GINOP Plusz Net Stipend (+245,000 HUF/mo)", value=True)
+        ginop_months = st.slider("GINOP Plusz Duration (Months)", min_value=1, max_value=12, value=4) if include_ginop else 0
+        
+        include_nevelesi = st.checkbox("Include Nevelési Ellátás (+20,300 HUF/mo)", value=True)
+        vuaa_real_cagr = st.slider("Expected VUAA Real Return (%/year)", min_value=4.0, max_value=12.0, value=7.5, step=0.5)
+        
+        deflation_relief_pct = st.slider("AI Deflation Expense Reduction (%)", min_value=0, max_value=30, value=12, step=1)
+        effective_target = FIRE_TARGET_MILESTONE_HUF * (1.0 - (deflation_relief_pct / 100.0))
+        
+        st.markdown(f"""
+        <div class="metric-card" style="margin-top: 1rem;">
+            <div class="metric-title">Effective Adjusted Milestone</div>
+            <div class="metric-value">{effective_target/1_000_000:.1f}M HUF</div>
+            <div class="metric-delta">Base Target: 60M HUF (Reduced by {deflation_relief_pct}% via AI deflation)</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_w2:
+        # Simulation loop month-by-month for 15 years (180 months)
+        monthly_rate = (1.0 + (vuaa_real_cagr / 100.0)) ** (1.0 / 12.0) - 1.0
+        months_seq = []
+        balance_seq = []
+        curr_bal = float(current_tbsz)
+        target_month_hit = None
+        
+        sim_start_date = get_budapest_now().date()
+        for m in range(180):
+            d_sim = sim_start_date + timedelta(days=int(m * 30.4375))
+            months_seq.append(d_sim.strftime("%Y-%m"))
+            
+            inflow = base_monthly
+            if include_nevelesi:
+                inflow += NEVELESI_ELLATAS_MONTHLY
+            if include_ginop and m < ginop_months:
+                inflow += GINOP_NET_STIPEND_MONTHLY
+                
+            curr_bal = (curr_bal + inflow) * (1.0 + monthly_rate)
+            balance_seq.append(round(curr_bal))
+            
+            if curr_bal >= effective_target and target_month_hit is None:
+                target_month_hit = (d_sim, m)
+
+        fig_wealth = go.Figure()
+        fig_wealth.add_trace(go.Scatter(
+            x=months_seq, 
+            y=balance_seq, 
+            mode="lines", 
+            name="TBSZ VUAA Trajectory", 
+            line=dict(color="#10b981", width=3)
+        ))
+        fig_wealth.add_hline(
+            y=effective_target, 
+            line_dash="dash", 
+            line_color="#f59e0b", 
+            annotation_text=f"Target: {effective_target/1_000_000:.1f}M HUF", 
+            annotation_position="top left"
+        )
+        fig_wealth.update_layout(
+            template="plotly_dark",
+            xaxis=dict(title="Timeline (Years)", fixedrange=True),
+            yaxis=dict(title="Portfolio Value (HUF)", fixedrange=True),
+            margin=dict(l=20, r=20, t=20, b=20),
+            height=420
+        )
+        st.plotly_chart(fig_wealth, config=chart_config)
+
+        if target_month_hit:
+            hit_date, hit_m = target_month_hit
+            st.success(f"🎯 **Projected Milestone Crossing:** {hit_date.strftime('%B %Y')} ({hit_m} months from today, at age {get_user_exact_age(hit_date)}). Capital compounding inside your 0% tax TBSZ safeguards lifetime independence.")
+        else:
+            st.warning("Milestone crossing lies beyond the 15-year horizon. Increase monthly contributions or enhance savings rate via GINOP career transitions.")
+
+# --- TAB 4: Personal Timeline ---
 with tab2:
     st.subheader("🧬 Personal Longevity & Financial Independence Horizon")
-    st.caption("Custom-calibrated countdowns mapping your life journey from late 2026 through the intelligence inflection.")
+    st.caption("Calibrated countdowns mapping your life journey from late 2026 through the intelligence inflection.")
 
     base_fire = datetime(2031, 12, 1)
     base_lev = datetime(2037, 10, 15)
     
-    fire_comp_m = int(exec_m.get("fire_compression_months", 10))
-    lev_comp_m = int(exec_m.get("lev_compression_months", 14))
+    fire_comp_m = int(exec_m.get("fire_compression_months", 11))
+    lev_comp_m = int(exec_m.get("lev_compression_months", 15))
 
     dt_fire_compressed = base_fire - timedelta(days=fire_comp_m * 30.4)
     dt_lev_compressed = base_lev - timedelta(days=lev_comp_m * 30.4)
     dt_weak_agi = datetime(2027, 2, 1)
     dt_full_agi = datetime(2028, 5, 1)
     dt_asi = datetime(2030, 10, 1)
+    dt_actuarial_baseline = datetime(2078, 12, 1)
     dt_lev_extended_death = datetime(2145, 12, 1)
 
     c_row1, c_row2, c_row3 = st.columns(3)
@@ -867,7 +968,7 @@ with tab2:
         <div class="countdown-box">
             <div class="countdown-sub">Most Probable Personal LEV Arrival</div>
             <div class="countdown-num">{calculate_countdown(dt_lev_compressed)}</div>
-            <div style="font-size: 0.8rem; color: #a5b4fc;">Target: {dt_lev_compressed.strftime('%B %Y')} (Compressed by {lev_comp_m}mo)</div>
+            <div style="font-size: 0.8rem; color: #a5b4fc;">Target: {dt_lev_compressed.strftime('%B %Y')} (Age {get_user_exact_age(dt_lev_compressed.date())})</div>
         </div>
         """, unsafe_allow_html=True)
     with c_row2:
@@ -881,13 +982,13 @@ with tab2:
     with c_row3:
         st.markdown(f"""
         <div class="countdown-box">
-            <div class="countdown-sub">Longevity Horizon / Death Countdown</div>
+            <div class="countdown-sub">Longevity Horizon / Post-LEV Extension</div>
             <div class="countdown-num">{calculate_countdown(dt_lev_extended_death)}</div>
             <div style="font-size: 0.8rem; color: #a5b4fc;">LEV-Adjusted Horizon: ~2145+ (Age 140+)</div>
         </div>
         """, unsafe_allow_html=True)
 
-    st.caption("Note on Death Countdown: Hungarian actuarial baseline points to **December 2078** (Age 75, ~52 years remaining). Reaching LEV in early/mid 2036 with 42 years of biological buffer allows subsequent annual rejuvenation breakthroughs to extend healthspan past **2145+**.")
+    st.caption(f"Actuarial Reality Check: The Hungarian male actuarial baseline establishes expected mortality at **December 2078** (Age 75). Reaching Longevity Escape Velocity in **{dt_lev_compressed.strftime('%B %Y')}** (at age {get_user_exact_age(dt_lev_compressed.date())}) provides a **42.2-year biological buffer**, ensuring you cross into escape velocity long before cellular decline outpaces biomedical rejuvenation.")
 
     st.divider()
     st.subheader("⚡ AGI & Superintelligence Milestone Countdowns")
@@ -917,14 +1018,7 @@ with tab2:
         </div>
         """, unsafe_allow_html=True)
 
-    st.subheader("📈 FIRE Compression Multiplier (VUAA & Cognitive Deflation)")
-    st.write("""
-    Every frontier model release directly accelerates your path to FIRE via two transmission channels:
-    1. **Direct Software Deflation**: Tools, software subscriptions, and developer costs drop toward marginal compute cost.
-    2. **Asset Compounding Velocity**: High-capex Big Tech returns compound the global equity index (VUAA ETF) inside your tax-sheltered TBSZ account.
-    """)
-
-# --- TAB 4: Geopolitics & Personal Impact Matrix ---
+# --- TAB 5: Geopolitics & Personal Impact Matrix ---
 with tab3:
     st.subheader("🏛️ Macro Geopolitics & Live Personal Life Effect Matrix")
     st.caption("Evaluated strictly through your European / Hungarian capital and life lens (EU AI regulation, EUR/HUF currency stability, and VUAA compounding).")
@@ -951,23 +1045,23 @@ with tab3:
 
     st.subheader("📊 Net Personal Life Impact Matrix Across All 13 AI Models")
     model_impact_rows = [
-        {"Model Tier": "Gemini Pro", "Lab": "Google", "Personal Effect": f"+{effects.get('gemini_pro', 55)}%", "Key Channel": "Primary daily driver brain, long context, coding execution"},
-        {"Model Tier": "Claude 6 (Frontier)", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_6', 78)}%", "Key Channel": "Autonomous software engineering, massive LEV research pull-forward"},
-        {"Model Tier": "GPT-7 (Frontier)", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_7', 85)}%", "Key Channel": "Universal self-directed research agent, autonomous proof solving"},
-        {"Model Tier": "Next Claude Sonnet", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_sonnet', 48)}%", "Key Channel": "Industry standard agentic coding, personal tooling automation"},
-        {"Model Tier": "Next Claude Opus", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_opus', 42)}%", "Key Channel": "Complex mathematical and biochemical reasoning"},
-        {"Model Tier": "GPT-Astra 6.1", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_astra', 30)}%", "Key Channel": "Autonomous test-time reasoning and verification"},
-        {"Model Tier": "Claude Fable 5.2", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_fable', 26)}%", "Key Channel": "Specialized creative and structural reasoning"},
-        {"Model Tier": "GPT-Sol 6.1", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_sol', 24)}%", "Key Channel": "Fast reasoning and code analysis"},
-        {"Model Tier": "Gemini Flash (3.9+ / 4.0)", "Lab": "Google", "Personal Effect": f"+{effects.get('gemini_flash', 22)}%", "Key Channel": "Gemini Live voice speed and real-time multimodal parsing"},
-        {"Model Tier": "GPT-Luna 6.1", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_luna', 20)}%", "Key Channel": "Lightweight planning agent"},
-        {"Model Tier": "Gemini Flash-Lite (3.6+)", "Lab": "Google", "Personal Effect": f"+{effects.get('gemini_flash_lite', 18)}%", "Key Channel": "Low-cost local API scripting throughput"},
-        {"Model Tier": "GPT-Terra 5.7", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_terra', 16)}%", "Key Channel": "Developer iterative debugging"},
-        {"Model Tier": "Next Claude Haiku", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_haiku', 15)}%", "Key Channel": "Background sub-agent routing and execution"}
+        {"Model Tier": "Gemini Pro", "Lab": "Google", "Personal Effect": f"+{effects.get('gemini_pro', 60)}%", "Key Channel": "Primary daily driver brain, long context, coding execution"},
+        {"Model Tier": "Claude 6 (Frontier)", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_6', 82)}%", "Key Channel": "Autonomous software engineering, massive LEV research pull-forward"},
+        {"Model Tier": "GPT-7 (Frontier)", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_7', 88)}%", "Key Channel": "Universal self-directed research agent, autonomous proof solving"},
+        {"Model Tier": "Next Claude Sonnet", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_sonnet', 52)}%", "Key Channel": "Industry standard agentic coding, personal tooling automation"},
+        {"Model Tier": "Next Claude Opus", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_opus', 45)}%", "Key Channel": "Complex mathematical and biochemical reasoning"},
+        {"Model Tier": "GPT-Astra 6.1", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_astra', 32)}%", "Key Channel": "Autonomous test-time reasoning and verification"},
+        {"Model Tier": "Claude Fable 5.2", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_fable', 28)}%", "Key Channel": "Specialized creative and structural reasoning"},
+        {"Model Tier": "GPT-Sol 6.1", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_sol', 26)}%", "Key Channel": "Fast reasoning and code analysis"},
+        {"Model Tier": "Gemini Flash (3.9+ / 4.0)", "Lab": "Google", "Personal Effect": f"+{effects.get('gemini_flash', 24)}%", "Key Channel": "Gemini Live voice speed and real-time multimodal parsing"},
+        {"Model Tier": "GPT-Luna 6.1", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_luna', 22)}%", "Key Channel": "Lightweight planning agent"},
+        {"Model Tier": "Gemini Flash-Lite (3.6+)", "Lab": "Google", "Personal Effect": f"+{effects.get('gemini_flash_lite', 20)}%", "Key Channel": "Low-cost local API scripting throughput"},
+        {"Model Tier": "GPT-Terra 5.7", "Lab": "OpenAI", "Personal Effect": f"+{effects.get('gpt_terra', 18)}%", "Key Channel": "Developer iterative debugging"},
+        {"Model Tier": "Next Claude Haiku", "Lab": "Anthropic", "Personal Effect": f"+{effects.get('claude_haiku', 16)}%", "Key Channel": "Background sub-agent routing and execution"}
     ]
     st.dataframe(pd.DataFrame(model_impact_rows))
 
-# --- TAB 5: Alan Thompson Milestones & Millennium Math ---
+# --- TAB 6: Alan Thompson Milestones & Millennium Math ---
 with tab4:
     st.subheader("🧠 Alan Thompson (LifeArchitect.ai) AGI / ASI Tracking")
     
@@ -1015,7 +1109,7 @@ with tab4:
             "breakthrough_impact": "Disciplinary Impact"
         }))
 
-# --- TAB 6: Live Epistemic & Order Book Audit ---
+# --- TAB 7: Live Epistemic & Order Book Audit ---
 with tab5:
     st.subheader("🔍 Live Polymarket Order Books & Inversion Audit")
     st.caption("Raw order book state verifying volume and negative contract resolution across all monitored markets.")
