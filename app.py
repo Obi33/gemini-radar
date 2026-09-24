@@ -52,6 +52,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Target Polymarket Events across all 3 labs
 POLYMARKET_EVENTS = [
     # Google
     {"slug": "when-will-the-next-google-gemini-pro-model-be-released-20260817144359068", "entity": "Google", "label": "Gemini Pro"},
@@ -75,6 +76,7 @@ POLYMARKET_EVENTS = [
     {"slug": "which-company-has-best-ai-model-end-of-2026", "entity": "Crown", "label": "Best Model End of 2026"}
 ]
 
+# Top 10 Epistemic Benchmarks (AGI, LEV, and FIRE Economics)
 METACULUS_BENCHMARKS = [
     {
         "id": 5121,
@@ -202,6 +204,50 @@ def get_api_key():
         return st.secrets["GEMINI_API_KEY"]
     return os.environ.get("GEMINI_API_KEY")
 
+def execute_gemini_query(client, prompt):
+    """Executes using the modern Interactions API first, falling back gracefully."""
+    candidate_models = [
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.5-flash"
+    ]
+    
+    # 1. Primary: Use the standard Interactions API
+    if hasattr(client, "interactions"):
+        for m in candidate_models:
+            try:
+                interaction = client.interactions.create(
+                    model=m,
+                    input=prompt
+                )
+                text = getattr(interaction, "output_text", None)
+                if not text and hasattr(interaction, "outputs") and interaction.outputs:
+                    for out in reversed(interaction.outputs):
+                        if hasattr(out, "text") and out.text:
+                            text = out.text
+                            break
+                if text:
+                    return text, f"{m} (Interactions API)"
+            except Exception:
+                continue
+
+    # 2. Secondary fallback: GenerateContent API
+    last_error = None
+    for m in candidate_models:
+        try:
+            resp = client.models.generate_content(
+                model=m,
+                contents=prompt
+            )
+            if resp and resp.text:
+                return resp.text, f"{m} (GenerateContent API)"
+        except Exception as e:
+            last_error = e
+            continue
+
+    raise RuntimeError(f"All API endpoints rejected query. Last error: {str(last_error)}")
+
 @st.cache_data(ttl=3600)
 def compute_macro_horizon():
     api_key = get_api_key()
@@ -228,7 +274,7 @@ def compute_macro_horizon():
 
     prompt = f"""
     You are an expert quantitative forecaster and Bayesian modeler.
-    Current Date: September 24, 2026.
+    Current Date: Late September 2026.
 
     LIVE POLYMARKET MARKET DATA:
     {json.dumps(poly_data, indent=2)}
@@ -292,40 +338,16 @@ def compute_macro_horizon():
     }}
     """
 
-    # Primary targets verified in Google AI Studio
-    models_to_try = [
-        "gemini-3.6-flash",
-        "gemini-3.8-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-3-flash"
-    ]
-
-    response = None
-    last_err = None
-    active_model = None
-
-    for model_name in models_to_try:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config={"response_mime_type": "application/json"}
-            )
-            if response and response.text:
-                active_model = model_name
-                break
-        except Exception as e:
-            last_err = e
-            continue
-
-    if not response or not response.text:
-        return {"error": f"API generation failed across models: {str(last_err)}"}
+    try:
+        raw_text, active_model = execute_gemini_query(client, prompt)
+    except Exception as api_err:
+        return {"error": f"API generation failed across models: {str(api_err)}"}
 
     try:
-        clean_text = response.text.replace("```json", "").replace("```", "").strip()
+        clean_text = raw_text.replace("```json", "").replace("```", "").strip()
         result = json.loads(clean_text)
     except Exception as pe:
-        return {"error": f"JSON parsing failed: {str(pe)}. Output snippet: {response.text[:200]}"}
+        return {"error": f"JSON parsing failed: {str(pe)}. Output snippet: {raw_text[:200]}"}
 
     # Strict normalization across all 9 models (each sums to exactly 100.00%)
     model_keys = [
@@ -623,7 +645,7 @@ with tab4:
 
 # Footer
 st.divider()
-st.caption(f"Engine: Google AI Studio ({data.get('active_model', 'gemini-3.6-flash')}) · Polymarket Gamma API · Metaculus Epistemics · Last Calibrated: {data['refreshed_at']}")
+st.caption(f"Engine: Google AI Studio ({data.get('active_model', 'gemini-3.8-flash')}) · Polymarket Gamma API · Metaculus Epistemics · Last Calibrated: {data['refreshed_at']}")
 if st.button("Force Synchronized Market Recalculation"):
     st.cache_data.clear()
     st.rerun()
