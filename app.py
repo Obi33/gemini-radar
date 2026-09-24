@@ -505,4 +505,204 @@ with tab1:
             template="plotly_dark",
             xaxis_title="Calendar Date (September - October 2026)",
             yaxis_title="Implied Daily Probability (%)",
+            hovermode="x unified",
+            margin=dict(l=20, r=20, t=20, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_g, use_container_width=True)
         
+        st.caption(f"Post-October 31 Tail Probability: Flash-Lite: {tails['gemini_flash_lite']}% | Flash: {tails['gemini_flash']}% | Pro: {tails['gemini_pro']}%")
+        
+        table_g = df_daily[["date", "gemini_flash_lite", "gemini_flash", "gemini_pro"]].copy()
+        tail_row_g = pd.DataFrame([{
+            "date": "Post-October 31 (Tail)",
+            "gemini_flash_lite": tails["gemini_flash_lite"],
+            "gemini_flash": tails["gemini_flash"],
+            "gemini_pro": tails["gemini_pro"]
+        }])
+        table_g = pd.concat([table_g, tail_row_g], ignore_index=True)
+        st.dataframe(table_g.rename(columns={
+            "date": "Calendar Date",
+            "gemini_flash_lite": "Flash-Lite (%)",
+            "gemini_flash": "Flash (%)",
+            "gemini_pro": "Pro (%)"
+        }), use_container_width=True, height=360)
+
+    # --- ANTHROPIC ---
+    with lab_tab_anthropic:
+        st.subheader("Anthropic · Implied Release Windows")
+        d_sonnet, p_sonnet = get_calibrated_peak(df_daily, tails["claude_sonnet"], "claude_sonnet")
+        d_haiku, p_haiku = get_calibrated_peak(df_daily, tails["claude_haiku"], "claude_haiku")
+        d_fable, p_fable = get_calibrated_peak(df_daily, tails["claude_fable"], "claude_fable")
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Next Claude Sonnet", d_sonnet, p_sonnet)
+        with c2:
+            st.metric("Next Claude Haiku", d_haiku, p_haiku)
+        with c3:
+            st.metric("Claude Fable 5.2", d_fable, p_fable)
+            
+        fig_a = go.Figure()
+        fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_sonnet"], mode="lines+markers", name="Next Sonnet", line=dict(color="#f59e0b", width=2.5)))
+        fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_haiku"], mode="lines+markers", name="Next Haiku", line=dict(color="#fb923c", width=2.5)))
+        fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_fable"], mode="lines+markers", name="Claude Fable 5.2", line=dict(color="#c084fc", width=2.5)))
+        fig_a.update_layout(
+            template="plotly_dark",
+            xaxis_title="Calendar Date (September - October 2026)",
+            yaxis_title="Implied Daily Probability (%)",
+            hovermode="x unified",
+            margin=dict(l=20, r=20, t=20, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_a, use_container_width=True)
+        
+        st.caption(f"Post-October 31 Tail Probability: Next Sonnet: {tails['claude_sonnet']}% | Next Haiku: {tails['claude_haiku']}% | Fable 5.2: {tails['claude_fable']}% | Claude 6 (Frontier): {tails['claude_6']}%")
+        
+        table_a = df_daily[["date", "claude_sonnet", "claude_haiku", "claude_fable"]].copy()
+        tail_row_a = pd.DataFrame([{
+            "date": "Post-October 31 (Tail)",
+            "claude_sonnet": tails["claude_sonnet"],
+            "claude_haiku": tails["claude_haiku"],
+            "claude_fable": tails["claude_fable"]
+        }])
+        table_a = pd.concat([table_a, tail_row_a], ignore_index=True)
+        st.dataframe(table_a.rename(columns={
+            "date": "Calendar Date",
+            "claude_sonnet": "Next Sonnet (%)",
+            "claude_haiku": "Next Haiku (%)",
+            "claude_fable": "Fable 5.2 (%)"
+        }), use_container_width=True, height=360)
+
+    # --- OPENAI ---
+    with lab_tab_openai:
+        st.subheader("OpenAI · Implied Release Windows")
+        d_terra, p_terra = get_calibrated_peak(df_daily, tails["gpt_terra"], "gpt_terra")
+        d_astra, p_astra = get_calibrated_peak(df_daily, tails["gpt_astra"], "gpt_astra")
+        d_g7, p_g7 = get_calibrated_peak(df_daily, tails["gpt_7"], "gpt_7")
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("GPT-Terra 5.7", d_terra, p_terra)
+        with c2:
+            st.metric("GPT-Astra 6.1", d_astra, p_astra)
+        with c3:
+            st.metric("GPT-7 (Frontier)", d_g7, p_g7)
+            
+        fig_o = go.Figure()
+        fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_terra"], mode="lines+markers", name="GPT-Terra 5.7", line=dict(color="#10b981", width=2.5)))
+        fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_astra"], mode="lines+markers", name="GPT-Astra 6.1", line=dict(color="#06b6d4", width=2.5)))
+        fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_7"], mode="lines+markers", name="GPT-7 (Frontier)", line=dict(color="#ec4899", width=2.5)))
+        fig_o.update_layout(
+            template="plotly_dark",
+            xaxis_title="Calendar Date (September - October 2026)",
+            yaxis_title="Implied Daily Probability (%)",
+            hovermode="x unified",
+            margin=dict(l=20, r=20, t=20, b=20),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_o, use_container_width=True)
+        
+        st.caption(f"Post-October 31 Tail Probability: GPT-Terra 5.7: {tails['gpt_terra']}% | GPT-Astra 6.1: {tails['gpt_astra']}% | GPT-7 (Frontier): {tails['gpt_7']}%")
+        
+        table_o = df_daily[["date", "gpt_terra", "gpt_astra", "gpt_7"]].copy()
+        tail_row_o = pd.DataFrame([{
+            "date": "Post-October 31 (Tail)",
+            "gpt_terra": tails["gpt_terra"],
+            "gpt_astra": tails["gpt_astra"],
+            "gpt_7": tails["gpt_7"]
+        }])
+        table_o = pd.concat([table_o, tail_row_o], ignore_index=True)
+        st.dataframe(table_o.rename(columns={
+            "date": "Calendar Date",
+            "gpt_terra": "GPT-Terra (%)",
+            "gpt_astra": "GPT-Astra (%)",
+            "gpt_7": "GPT-7 (%)"
+        }), use_container_width=True, height=360)
+
+# --- TAB 2: Frontier Landscape & 2026 Crown ---
+with tab2:
+    st.subheader("Q4 Frontier Release Windows & 2026 Crown Consensus")
+    col_summary, col_pie = st.columns([3, 2])
+    
+    with col_summary:
+        d_glite, _ = get_calibrated_peak(df_daily, tails["gemini_flash_lite"], "gemini_flash_lite")
+        d_gflash, _ = get_calibrated_peak(df_daily, tails["gemini_flash"], "gemini_flash")
+        d_gpro, _ = get_calibrated_peak(df_daily, tails["gemini_pro"], "gemini_pro")
+        d_asonnet, _ = get_calibrated_peak(df_daily, tails["claude_sonnet"], "claude_sonnet")
+        d_ahaiku, _ = get_calibrated_peak(df_daily, tails["claude_haiku"], "claude_haiku")
+        d_afable, _ = get_calibrated_peak(df_daily, tails["claude_fable"], "claude_fable")
+        d_oterra, _ = get_calibrated_peak(df_daily, tails["gpt_terra"], "gpt_terra")
+        d_oastra, _ = get_calibrated_peak(df_daily, tails["gpt_astra"], "gpt_astra")
+        
+        summary_rows = [
+            {"Lab": "Google", "Model": "Gemini Flash-Lite (3.6+)", "Window": d_glite, "Status": "Near-term distillation"},
+            {"Lab": "Google", "Model": "Gemini Flash (3.9+ / 4.0)", "Window": d_gflash, "Status": "Multimodal speed milestone"},
+            {"Lab": "Google", "Model": "Gemini Pro", "Window": d_gpro, "Status": "Frontier agentic flagship"},
+            {"Lab": "Anthropic", "Model": "Next Claude Sonnet", "Window": d_asonnet, "Status": "Autonomous software standard"},
+            {"Lab": "Anthropic", "Model": "Next Claude Haiku", "Window": d_ahaiku, "Status": "Tool execution model"},
+            {"Lab": "Anthropic", "Model": "Claude Fable 5.2", "Window": d_afable, "Status": "Specialized reasoning checkpoint"},
+            {"Lab": "Anthropic", "Model": "Claude 6", "Window": "2027+ Horizon", "Status": f"Frontier leap ({tails['claude_6']}% Post-Oct)"},
+            {"Lab": "OpenAI", "Model": "GPT-Terra 5.7", "Window": d_oterra, "Status": "Iterative checkpoint (wide spread)"},
+            {"Lab": "OpenAI", "Model": "GPT-Astra 6.1", "Window": d_oastra, "Status": "Point release (wide spread)"},
+            {"Lab": "OpenAI", "Model": "GPT-7", "Window": "2027+ Horizon", "Status": f"Frontier leap ({tails['gpt_7']}% Post-Oct)"}
+        ]
+        st.dataframe(pd.DataFrame(summary_rows), use_container_width=True)
+
+    with col_pie:
+        st.subheader("Which Company Has Best Model End of 2026?")
+        standings = data.get("best_ai_2026_standings", [])
+        if standings:
+            df_stand = pd.DataFrame(standings)
+            fig_pie = go.Figure(data=[go.Pie(
+                labels=df_stand["company"],
+                values=df_stand["implied_pct"],
+                hole=0.45,
+                marker=dict(colors=["#f59e0b", "#10b981", "#38bdf8", "#8b5cf6"])
+            )])
+            fig_pie.update_layout(
+                template="plotly_dark",
+                margin=dict(l=10, r=10, t=10, b=10),
+                height=300,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+            st.caption("Resolves via Arena.ai Blind Leaderboard and Artificial Analysis index at midnight Dec 31, 2026.")
+
+# --- TAB 3: Metaculus Epistemic Horizon ---
+with tab3:
+    st.subheader("⏳ Top 10 Epistemic Benchmarks: AGI, Longevity & FIRE Economics")
+    st.caption("Aggregated superforecaster medians unpolluted by retail betting illiquidity.")
+    
+    meta_cols = st.columns(2)
+    for idx, item in enumerate(METACULUS_BENCHMARKS):
+        target_col = meta_cols[idx % 2]
+        with target_col:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-title">{item['category']} · Question #{item['id']}</div>
+                <div class="metric-value">{item['community_median']}</div>
+                <div style="font-size: 1.05rem; font-weight: 600; color: #f9fafb; margin: 0.4rem 0;">
+                    {item['title']}
+                </div>
+                <div style="font-size: 0.85rem; color: #9ca3af; line-height: 1.4;">
+                    <strong>Strategic FIRE / LEV Impact:</strong> {item['impact']}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+# --- TAB 4: Raw Order Books ---
+with tab4:
+    st.subheader("Live Polymarket Contract Inspection")
+    for ev in data.get("polymarket_raw", []):
+        with st.expander(f"{ev['entity']} · {ev['label']} ({len(ev['options'])} options)"):
+            st.caption(f"Event Slug: `{ev['slug']}`")
+            if ev["options"]:
+                st.table(pd.DataFrame(ev["options"]))
+
+# Footer
+st.divider()
+st.caption(f"Engine: Google AI Studio ({data.get('active_model', 'gemini-3.6-flash')}) · Polymarket Gamma API · Metaculus Epistemics · Last Calibrated: {data['refreshed_at']}")
+if st.button("Force Synchronized Market Recalculation"):
+    st.cache_data.clear()
+    st.rerun()
