@@ -118,6 +118,22 @@ POLYMARKET_EVENTS = [
     {"slug": "which-math-problems-will-ai-solve-in-2026", "entity": "Math", "label": "Math Problems Solved 2026"}
 ]
 
+MODEL_METADATA = {
+    "gemini_flash_lite": {"name": "Gemini Flash-Lite (3.6+)", "lab": "Google DeepMind", "color": "#38bdf8"},
+    "gemini_flash": {"name": "Gemini Flash (3.9+ / 4.0)", "lab": "Google DeepMind", "color": "#34d399"},
+    "gemini_pro": {"name": "Gemini Pro (Daily Driver)", "lab": "Google DeepMind", "color": "#f43f5e"},
+    "claude_sonnet": {"name": "Next Claude Sonnet", "lab": "Anthropic", "color": "#f59e0b"},
+    "claude_haiku": {"name": "Next Claude Haiku", "lab": "Anthropic", "color": "#fb923c"},
+    "claude_opus": {"name": "Next Claude Opus", "lab": "Anthropic", "color": "#ec4899"},
+    "claude_fable": {"name": "Claude Fable 5.2", "lab": "Anthropic", "color": "#c084fc"},
+    "claude_6": {"name": "Claude 6 (Frontier Leap)", "lab": "Anthropic", "color": "#a855f7"},
+    "gpt_terra": {"name": "GPT-Terra 5.7", "lab": "OpenAI", "color": "#10b981"},
+    "gpt_astra": {"name": "GPT-Astra 6.1", "lab": "OpenAI", "color": "#06b6d4"},
+    "gpt_sol": {"name": "GPT-Sol 6.1", "lab": "OpenAI", "color": "#facc15"},
+    "gpt_luna": {"name": "GPT-Luna 6.1", "lab": "OpenAI", "color": "#e879f9"},
+    "gpt_7": {"name": "GPT-7 (Frontier Leap)", "lab": "OpenAI", "color": "#f43f5e"}
+}
+
 STATIC_ALAN_50_INDICATORS = [
     {"id": 1, "name": "Formal Proof of Navier-Stokes Singularity Formation", "category": "Mathematics", "status": "Achieved", "date": "2026-09"},
     {"id": 2, "name": "Self-Supervised De Novo Protein Rejuvenation Sequence", "category": "Biomedicine", "status": "Achieved", "date": "2026-07"},
@@ -293,7 +309,6 @@ def execute_gemini_guaranteed(client, prompt):
     
     for m in candidate_models:
         try:
-            # Enforce strict 8-second thread execution deadline
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(call_gemini_worker, client, m, prompt)
                 result_text = future.result(timeout=8.0)
@@ -540,7 +555,7 @@ st.caption("Strategic Bayesian nexus connecting multi-lab model releases, macro 
 
 data = get_or_run_data(force=False)
 
-# 1. Executive Top HUD (Static cards, dynamic values)
+# 1. Executive Top HUD
 exec_m = data.get("executive_metrics", {})
 c1, c2, c3, c4 = st.columns(4)
 
@@ -582,9 +597,10 @@ with c4:
 
 st.info(data.get("synthesis", ""))
 
-# 2. Strategy Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# 2. Six Strategy Tabs (Chronological pipeline placed immediately after radars)
+tab1, tab_chrono, tab2, tab3, tab4, tab5 = st.tabs([
     "⚡ Frontier Release Radars", 
+    "📅 Chronological Release Pipeline",
     "🧬 Personal Timeline: FIRE, LEV & Mortality", 
     "🏛️ Geopolitics & Personal Impact", 
     "🧠 Alan Thompson Milestones & Millennium Math", 
@@ -594,6 +610,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 df_daily = data["daily_df"]
 tails = data["tail_summary"]
 effects = data["personal_effect_map"]
+anchors_dict = data.get("model_anchors", {})
 
 # --- TAB 1: Frontier Release Radars ---
 with tab1:
@@ -750,7 +767,83 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
 
-# --- TAB 2: Personal Timeline ---
+# --- TAB 2: Chronological Release Pipeline ---
+with tab_chrono:
+    st.subheader("📅 Chronological Frontier Model Release Pipeline")
+    st.caption("All 13 monitored models dynamically sequenced by expected release date from nearest drop to 2027+ frontier horizons.")
+
+    now_date = get_budapest_now().date()
+    chrono_rows = []
+
+    for k, meta in MODEL_METADATA.items():
+        spec = anchors_dict.get(k, {})
+        p_date_str = spec.get("peak_date", "2026-10-15")
+        tail_val = tails.get(k, 15.0)
+        eff = effects.get(k, 25)
+        
+        try:
+            p_date = datetime.strptime(p_date_str, "%Y-%m-%d").date()
+            days_left = (p_date - now_date).days
+            days_label = f"{days_left} days" if days_left > 0 else "Imminent (Within 48h)"
+        except Exception:
+            p_date = date(2027, 12, 31)
+            days_left = 300
+            days_label = "2027+ Horizon"
+
+        if float(tail_val) >= 90.0:
+            timing_display = f"{p_date_str} (2027+)"
+            status_badge = f"{tail_val}% Post-Oct Tail"
+        else:
+            timing_display = p_date_str
+            if k in df_daily.columns:
+                idx_max = df_daily[k].idxmax()
+                peak_pct = round(float(df_daily.loc[idx_max, k]), 1)
+                status_badge = f"{peak_pct}% Daily Density"
+            else:
+                status_badge = f"{tail_val}% Tail"
+
+        chrono_rows.append({
+            "_sort_date": p_date,
+            "Expected Release": timing_display,
+            "Countdown": days_label,
+            "Lab": meta["lab"],
+            "Model Designation": meta["name"],
+            "Net Personal Impact": f"+{eff}%",
+            "Peak Probability / Status": status_badge
+        })
+
+    chrono_df = pd.DataFrame(chrono_rows).sort_values(by="_sort_date").reset_index(drop=True)
+    chrono_df.insert(0, "Order", [f"#{i+1}" for i in range(len(chrono_df))])
+
+    # Horizontal sequence chart
+    fig_chrono = go.Figure()
+    for idx, row in chrono_df.iterrows():
+        c = "#38bdf8" if "Google" in row["Lab"] else ("#f59e0b" if "Anthropic" in row["Lab"] else "#10b981")
+        days_from_now = (row["_sort_date"] - now_date).days
+        fig_chrono.add_trace(go.Bar(
+            x=[max(1, days_from_now)],
+            y=[f"{row['Order']} · {row['Model Designation']}"],
+            orientation='h',
+            marker=dict(color=c),
+            text=f"{row['Expected Release']} ({row['Countdown']})",
+            textposition='inside',
+            hovertext=f"Lab: {row['Lab']} | Personal Impact: {row['Net Personal Impact']}",
+            showlegend=False
+        ))
+        
+    fig_chrono.update_layout(
+        template="plotly_dark",
+        xaxis=dict(title="Days from Today (Budapest Time)", fixedrange=True),
+        yaxis=dict(autorange="reversed", fixedrange=True),
+        margin=dict(l=20, r=20, t=20, b=20),
+        height=480
+    )
+    st.plotly_chart(fig_chrono, config=chart_config)
+
+    st.subheader("📋 Sequenced Master Pipeline Breakdown")
+    st.dataframe(chrono_df.drop(columns=["_sort_date"]))
+
+# --- TAB 3: Personal Timeline ---
 with tab2:
     st.subheader("🧬 Personal Longevity & Financial Independence Horizon")
     st.caption("Custom-calibrated countdowns mapping your life journey from late 2026 through the intelligence inflection.")
@@ -831,7 +924,7 @@ with tab2:
     2. **Asset Compounding Velocity**: High-capex Big Tech returns compound the global equity index (VUAA ETF) inside your tax-sheltered TBSZ account.
     """)
 
-# --- TAB 3: Geopolitics & Personal Impact Matrix ---
+# --- TAB 4: Geopolitics & Personal Impact Matrix ---
 with tab3:
     st.subheader("🏛️ Macro Geopolitics & Live Personal Life Effect Matrix")
     st.caption("Evaluated strictly through your European / Hungarian capital and life lens (EU AI regulation, EUR/HUF currency stability, and VUAA compounding).")
@@ -874,7 +967,7 @@ with tab3:
     ]
     st.dataframe(pd.DataFrame(model_impact_rows))
 
-# --- TAB 4: Alan Thompson Milestones & Millennium Math ---
+# --- TAB 5: Alan Thompson Milestones & Millennium Math ---
 with tab4:
     st.subheader("🧠 Alan Thompson (LifeArchitect.ai) AGI / ASI Tracking")
     
@@ -922,7 +1015,7 @@ with tab4:
             "breakthrough_impact": "Disciplinary Impact"
         }))
 
-# --- TAB 5: Live Epistemic & Order Book Audit ---
+# --- TAB 6: Live Epistemic & Order Book Audit ---
 with tab5:
     st.subheader("🔍 Live Polymarket Order Books & Inversion Audit")
     st.caption("Raw order book state verifying volume and negative contract resolution across all monitored markets.")
