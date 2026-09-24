@@ -193,7 +193,6 @@ def fetch_single_event(item):
 
 def fetch_all_polymarket_data():
     records = []
-    # Run all 13 requests in parallel across a thread pool
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(fetch_single_event, item) for item in POLYMARKET_EVENTS]
         for f in as_completed(futures):
@@ -210,7 +209,6 @@ def get_api_key():
 def execute_gemini_interactions(client, prompt):
     candidate_models = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite"]
     
-    # 1. Modern Interactions API
     if hasattr(client, "interactions"):
         for m in candidate_models:
             try:
@@ -228,7 +226,6 @@ def execute_gemini_interactions(client, prompt):
             except Exception:
                 continue
 
-    # 2. GenerateContent Fallback
     for m in candidate_models:
         try:
             resp = client.models.generate_content(
@@ -244,7 +241,7 @@ def execute_gemini_interactions(client, prompt):
     raise RuntimeError("All candidate endpoints failed. Verify API key status.")
 
 def build_discrete_density(peak_date_str, spread_days, tail_pct, start_d, end_d):
-    """Computes Gaussian probability density across calendar days with Google weekday weighting."""
+    """Calculates continuous density across calendar days without boundary artifacts."""
     try:
         p_date = datetime.strptime(peak_date_str, "%Y-%m-%d").date()
     except Exception:
@@ -252,30 +249,31 @@ def build_discrete_density(peak_date_str, spread_days, tail_pct, start_d, end_d)
         
     num_days = (end_d - start_d).days + 1
     raw_weights = []
+    available_mass = max(1.0, 100.0 - float(tail_pct))
+    
+    # If model is overwhelmingly a post-October release (e.g. GPT-7 / Claude 6 with tail >= 90%)
+    if float(tail_pct) >= 90.0:
+        base_daily = round(available_mass / num_days, 3)
+        return [base_daily] * num_days
     
     for i in range(num_days):
         curr_d = start_d + timedelta(days=i)
         diff = (curr_d - p_date).days
-        # Normal distribution density
         base_w = math.exp(-0.5 * ((diff / max(1.5, spread_days)) ** 2))
         
-        # Google deployment cadence priors
-        weekday = curr_d.weekday()  # Mon=0, Sun=6
+        weekday = curr_d.weekday()
         if weekday in [1, 2, 3]:    # Tue, Wed, Thu
             w_factor = 1.0
         elif weekday == 0:          # Mon
             w_factor = 0.75
         elif weekday == 4:          # Fri
             w_factor = 0.60
-        else:                       # Sat, Sun (weekend baseline floor)
+        else:                       # Sat, Sun
             w_factor = 0.15
             
         raw_weights.append(base_w * w_factor)
         
     sum_w = sum(raw_weights)
-    available_mass = max(5.0, 100.0 - float(tail_pct))
-    
-    daily_pcts = []
     if sum_w > 0:
         daily_pcts = [round((w / sum_w) * available_mass, 2) for w in raw_weights]
     else:
@@ -303,10 +301,20 @@ def compute_macro_horizon():
     {json.dumps(poly_data, indent=2)}
 
     REQUIRED TASKS:
-    Evaluate the order books and output anchor calibration parameters for each model:
-    - Google: Gemini Pro (peaks Oct 13-17), Flash (peaks Oct 6-10), Flash-Lite (peaks Oct 2-6).
-    - Anthropic: Next Sonnet (peaks Sept 29 - Oct 3), Next Haiku (peaks Oct 5-9), Claude 6 (peaks late Oct / post-Oct).
-    - OpenAI: GPT-Terra (peaks Oct 7-12), GPT-Astra (peaks Oct 15-20), GPT-7 (heavy post-Oct tail).
+    Evaluate the order books and output calibration parameters for:
+    - Google: 
+        gemini_pro (peaks Oct 13-17, tail 15%), 
+        gemini_flash (peaks Oct 6-10, tail 14%), 
+        gemini_flash_lite (peaks Oct 2-6, tail 12%).
+    - Anthropic: 
+        claude_sonnet (peaks Sept 29 - Oct 3, tail 10%), 
+        claude_haiku (peaks Oct 5-9, tail 12%), 
+        claude_fable (Fable 5.2, peaks Oct 14-20, tail 18%),
+        claude_6 (Next-gen frontier: tail_pct MUST be 96.0% or higher. It is a 2027+ model).
+    - OpenAI: 
+        gpt_terra (Terra 5.7, peaks Oct 7-12, tail 16%), 
+        gpt_astra (Astra 6.1, peaks Oct 15-20, tail 20%), 
+        gpt_7 (True frontier leap: tail_pct MUST be 97.0% or higher. It is a 2027+ model).
 
     Return strict JSON ONLY with this schema:
     {{
@@ -322,10 +330,11 @@ def compute_macro_horizon():
         "gemini_pro": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 15.0}},
         "claude_sonnet": {{"peak_date": "YYYY-MM-DD", "spread_days": 2.5, "tail_pct": 10.0}},
         "claude_haiku": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 12.0}},
-        "claude_6": {{"peak_date": "YYYY-MM-DD", "spread_days": 4.5, "tail_pct": 35.0}},
+        "claude_fable": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.5, "tail_pct": 18.0}},
+        "claude_6": {{"peak_date": "2027-04-15", "spread_days": 6.0, "tail_pct": 96.0}},
         "gpt_terra": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.0, "tail_pct": 16.0}},
         "gpt_astra": {{"peak_date": "YYYY-MM-DD", "spread_days": 3.5, "tail_pct": 20.0}},
-        "gpt_7": {{"peak_date": "YYYY-MM-DD", "spread_days": 5.0, "tail_pct": 55.0}}
+        "gpt_7": {{"peak_date": "2027-06-30", "spread_days": 7.0, "tail_pct": 97.5}}
       }},
       "best_ai_2026_standings": [
         {{"company": "Anthropic", "implied_pct": 68.0}},
@@ -347,54 +356,52 @@ def compute_macro_horizon():
     except Exception as pe:
         return {"error": f"JSON parsing failed: {str(pe)}. Raw snippet: {raw_text[:200]}"}
 
-    # Deterministic continuous probability calculation in Python
     start_d = date(2026, 9, 23)
     end_d = date(2026, 10, 31)
     num_days = (end_d - start_d).days + 1
     
     date_labels = [(start_d + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(num_days)]
-    date_labels.append("no release before october 31")
-
+    
     anchors = result.get("model_anchors", {})
     daily_table = {"date": date_labels}
+    tail_summary = {}
 
-    model_keys = [
+    all_keys = [
         "gemini_flash_lite", "gemini_flash", "gemini_pro",
-        "claude_sonnet", "claude_haiku", "claude_6",
+        "claude_sonnet", "claude_haiku", "claude_fable", "claude_6",
         "gpt_terra", "gpt_astra", "gpt_7"
     ]
 
-    for k in model_keys:
-        m_spec = anchors.get(k, {"peak_date": "2026-10-15", "spread_days": 3.0, "tail_pct": 15.0})
+    for k in all_keys:
+        default_tail = 96.0 if k in ["claude_6", "gpt_7"] else 15.0
+        m_spec = anchors.get(k, {"peak_date": "2026-10-15", "spread_days": 3.0, "tail_pct": default_tail})
         p_date = m_spec.get("peak_date", "2026-10-15")
         spread = float(m_spec.get("spread_days", 3.0))
-        tail = float(m_spec.get("tail_pct", 15.0))
+        tail = float(m_spec.get("tail_pct", default_tail))
         
         curve = build_discrete_density(p_date, spread, tail, start_d, end_d)
-        curve.append(round(tail, 2))
-        
-        # Enforce exact 100.00% normalization
-        tot = sum(curve)
-        if tot > 0:
-            curve = [round((v / tot) * 100.0, 2) for v in curve]
-            diff = round(100.00 - sum(curve), 2)
-            curve[-1] = round(curve[-1] + diff, 2)
-            
         daily_table[k] = curve
+        tail_summary[k] = round(tail, 1)
 
-    result["daily_distributions"] = pd.DataFrame(daily_table)
+    result["daily_df"] = pd.DataFrame(daily_table)
+    result["tail_summary"] = tail_summary
     result["polymarket_raw"] = poly_data
     result["active_model"] = active_model
     result["refreshed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
     return result
 
-def get_peak_metric(df, col_name):
+def get_calibrated_peak(df, tail_val, col_name):
+    """Accurately distinguishes near-term calendar peaks from post-October horizon models."""
+    if float(tail_val) >= 75.0:
+        return "Post-October 31", f"{tail_val}% Post-Oct Tail"
+    
     if col_name in df.columns:
-        valid = df[df["date"] != "no release before october 31"]
-        if not valid.empty and valid[col_name].max() > 0:
-            idx = valid[col_name].idxmax()
-            return valid.loc[idx, "date"], round(float(valid.loc[idx, col_name]), 1)
-    return "Pending", 0.0
+        idx = df[col_name].idxmax()
+        peak_d = df.loc[idx, "date"]
+        peak_pct = round(float(df.loc[idx, col_name]), 1)
+        return peak_d, f"{peak_pct}% Daily Density"
+        
+    return "Pending", "0.0%"
 
 # --- UI Execution ---
 
@@ -458,7 +465,8 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "🔍 Raw Order Books"
 ])
 
-df_all = data["daily_distributions"]
+df_daily = data["daily_df"]
+tails = data["tail_summary"]
 
 # --- TAB 1: Daily Release Radars Across All 3 Labs ---
 with tab1:
@@ -471,34 +479,44 @@ with tab1:
     # --- GOOGLE ---
     with lab_tab_google:
         st.subheader("Google DeepMind · Implied Release Windows")
-        d_lite, p_lite = get_peak_metric(df_all, "gemini_flash_lite")
-        d_flash, p_flash = get_peak_metric(df_all, "gemini_flash")
-        d_pro, p_pro = get_peak_metric(df_all, "gemini_pro")
+        d_lite, p_lite = get_calibrated_peak(df_daily, tails["gemini_flash_lite"], "gemini_flash_lite")
+        d_flash, p_flash = get_calibrated_peak(df_daily, tails["gemini_flash"], "gemini_flash")
+        d_pro, p_pro = get_calibrated_peak(df_daily, tails["gemini_pro"], "gemini_pro")
         
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.metric("Gemini Flash-Lite (3.6+)", d_lite, f"{p_lite}% Peak Mass")
+            st.metric("Gemini Flash-Lite (3.6+)", d_lite, p_lite)
         with c2:
-            st.metric("Gemini Flash (3.9+ / 4.0)", d_flash, f"{p_flash}% Peak Mass")
+            st.metric("Gemini Flash (3.9+ / 4.0)", d_flash, p_flash)
         with c3:
-            st.metric("Gemini Pro", d_pro, f"{p_pro}% Peak Mass")
+            st.metric("Gemini Pro", d_pro, p_pro)
             
         fig_g = go.Figure()
-        fig_g.add_trace(go.Scatter(x=df_all["date"], y=df_all["gemini_flash_lite"], mode="lines+markers", name="Flash-Lite (3.6+)", line=dict(color="#38bdf8", width=2.5)))
-        fig_g.add_trace(go.Scatter(x=df_all["date"], y=df_all["gemini_flash"], mode="lines+markers", name="Flash (3.9+ / 4.0)", line=dict(color="#34d399", width=2.5)))
-        fig_g.add_trace(go.Scatter(x=df_all["date"], y=df_all["gemini_pro"], mode="lines+markers", name="Gemini Pro", line=dict(color="#f43f5e", width=2.5)))
+        fig_g.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gemini_flash_lite"], mode="lines+markers", name="Flash-Lite (3.6+)", line=dict(color="#38bdf8", width=2.5)))
+        fig_g.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gemini_flash"], mode="lines+markers", name="Flash (3.9+ / 4.0)", line=dict(color="#34d399", width=2.5)))
+        fig_g.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gemini_pro"], mode="lines+markers", name="Gemini Pro", line=dict(color="#f43f5e", width=2.5)))
         fig_g.update_layout(
             template="plotly_dark",
-            xaxis_title="Date",
-            yaxis_title="Probability Density (%)",
+            xaxis_title="Calendar Date (September - October 2026)",
+            yaxis_title="Implied Daily Probability (%)",
             hovermode="x unified",
             margin=dict(l=20, r=20, t=20, b=20),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_g, use_container_width=True)
         
-        st.caption(f"Strict Normalization Checksum: Flash-Lite: {df_all['gemini_flash_lite'].sum():.2f}% | Flash: {df_all['gemini_flash'].sum():.2f}% | Pro: {df_all['gemini_pro'].sum():.2f}%")
-        st.dataframe(df_all[["date", "gemini_flash_lite", "gemini_flash", "gemini_pro"]].rename(columns={
+        st.caption(f"Post-October 31 Tail Probability: Flash-Lite: {tails['gemini_flash_lite']}% | Flash: {tails['gemini_flash']}% | Pro: {tails['gemini_pro']}%")
+        
+        # Build clean table with tail row
+        table_g = df_daily[["date", "gemini_flash_lite", "gemini_flash", "gemini_pro"]].copy()
+        tail_row_g = pd.DataFrame([{
+            "date": "Post-October 31 (Tail)",
+            "gemini_flash_lite": tails["gemini_flash_lite"],
+            "gemini_flash": tails["gemini_flash"],
+            "gemini_pro": tails["gemini_pro"]
+        }])
+        table_g = pd.concat([table_g, tail_row_g], ignore_index=True)
+        st.dataframe(table_g.rename(columns={
             "date": "Calendar Date",
             "gemini_flash_lite": "Flash-Lite (%)",
             "gemini_flash": "Flash (%)",
@@ -508,71 +526,89 @@ with tab1:
     # --- ANTHROPIC ---
     with lab_tab_anthropic:
         st.subheader("Anthropic · Implied Release Windows")
-        d_sonnet, p_sonnet = get_peak_metric(df_all, "claude_sonnet")
-        d_haiku, p_haiku = get_peak_metric(df_all, "claude_haiku")
-        d_c6, p_c6 = get_peak_metric(df_all, "claude_6")
+        d_sonnet, p_sonnet = get_calibrated_peak(df_daily, tails["claude_sonnet"], "claude_sonnet")
+        d_haiku, p_haiku = get_calibrated_peak(df_daily, tails["claude_haiku"], "claude_haiku")
+        d_fable, p_fable = get_calibrated_peak(df_daily, tails["claude_fable"], "claude_fable")
         
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.metric("Next Claude Sonnet", d_sonnet, f"{p_sonnet}% Peak Mass")
+            st.metric("Next Claude Sonnet", d_sonnet, p_sonnet)
         with c2:
-            st.metric("Next Claude Haiku", d_haiku, f"{p_haiku}% Peak Mass")
+            st.metric("Next Claude Haiku", d_haiku, p_haiku)
         with c3:
-            st.metric("Claude 6", d_c6, f"{p_c6}% Peak Mass")
+            st.metric("Claude Fable 5.2", d_fable, p_fable)
             
         fig_a = go.Figure()
-        fig_a.add_trace(go.Scatter(x=df_all["date"], y=df_all["claude_sonnet"], mode="lines+markers", name="Next Sonnet", line=dict(color="#f59e0b", width=2.5)))
-        fig_a.add_trace(go.Scatter(x=df_all["date"], y=df_all["claude_haiku"], mode="lines+markers", name="Next Haiku", line=dict(color="#fb923c", width=2.5)))
-        fig_a.add_trace(go.Scatter(x=df_all["date"], y=df_all["claude_6"], mode="lines+markers", name="Claude 6", line=dict(color="#c084fc", width=2.5)))
+        fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_sonnet"], mode="lines+markers", name="Next Sonnet", line=dict(color="#f59e0b", width=2.5)))
+        fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_haiku"], mode="lines+markers", name="Next Haiku", line=dict(color="#fb923c", width=2.5)))
+        fig_a.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["claude_fable"], mode="lines+markers", name="Claude Fable 5.2", line=dict(color="#c084fc", width=2.5)))
         fig_a.update_layout(
             template="plotly_dark",
-            xaxis_title="Date",
-            yaxis_title="Probability Density (%)",
+            xaxis_title="Calendar Date (September - October 2026)",
+            yaxis_title="Implied Daily Probability (%)",
             hovermode="x unified",
             margin=dict(l=20, r=20, t=20, b=20),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_a, use_container_width=True)
         
-        st.caption(f"Strict Normalization Checksum: Sonnet: {df_all['claude_sonnet'].sum():.2f}% | Haiku: {df_all['claude_haiku'].sum():.2f}% | Claude 6: {df_all['claude_6'].sum():.2f}%")
-        st.dataframe(df_all[["date", "claude_sonnet", "claude_haiku", "claude_6"]].rename(columns={
+        st.caption(f"Post-October 31 Tail Probability: Next Sonnet: {tails['claude_sonnet']}% | Next Haiku: {tails['claude_haiku']}% | Fable 5.2: {tails['claude_fable']}% | Claude 6 (Frontier): {tails['claude_6']}%")
+        
+        table_a = df_daily[["date", "claude_sonnet", "claude_haiku", "claude_fable"]].copy()
+        tail_row_a = pd.DataFrame([{
+            "date": "Post-October 31 (Tail)",
+            "claude_sonnet": tails["claude_sonnet"],
+            "claude_haiku": tails["claude_haiku"],
+            "claude_fable": tails["claude_fable"]
+        }])
+        table_a = pd.concat([table_a, tail_row_a], ignore_index=True)
+        st.dataframe(table_a.rename(columns={
             "date": "Calendar Date",
             "claude_sonnet": "Next Sonnet (%)",
             "claude_haiku": "Next Haiku (%)",
-            "claude_6": "Claude 6 (%)"
+            "claude_fable": "Fable 5.2 (%)"
         }), use_container_width=True, height=360)
 
     # --- OPENAI ---
     with lab_tab_openai:
         st.subheader("OpenAI · Implied Release Windows")
-        d_terra, p_terra = get_peak_metric(df_all, "gpt_terra")
-        d_astra, p_astra = get_peak_metric(df_all, "gpt_astra")
-        d_g7, p_g7 = get_peak_metric(df_all, "gpt_7")
+        d_terra, p_terra = get_calibrated_peak(df_daily, tails["gpt_terra"], "gpt_terra")
+        d_astra, p_astra = get_calibrated_peak(df_daily, tails["gpt_astra"], "gpt_astra")
+        d_g7, p_g7 = get_calibrated_peak(df_daily, tails["gpt_7"], "gpt_7")
         
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.metric("GPT-Terra 5.7", d_terra, f"{p_terra}% Peak Mass")
+            st.metric("GPT-Terra 5.7", d_terra, p_terra)
         with c2:
-            st.metric("GPT-Astra 6.1", d_astra, f"{p_astra}% Peak Mass")
+            st.metric("GPT-Astra 6.1", d_astra, p_astra)
         with c3:
-            st.metric("GPT-7", d_g7, f"{p_g7}% Peak Mass")
+            st.metric("GPT-7 (Frontier)", d_g7, p_g7)
             
         fig_o = go.Figure()
-        fig_o.add_trace(go.Scatter(x=df_all["date"], y=df_all["gpt_terra"], mode="lines+markers", name="GPT-Terra 5.7", line=dict(color="#10b981", width=2.5)))
-        fig_o.add_trace(go.Scatter(x=df_all["date"], y=df_all["gpt_astra"], mode="lines+markers", name="GPT-Astra 6.1", line=dict(color="#06b6d4", width=2.5)))
-        fig_o.add_trace(go.Scatter(x=df_all["date"], y=df_all["gpt_7"], mode="lines+markers", name="GPT-7", line=dict(color="#ec4899", width=2.5)))
+        fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_terra"], mode="lines+markers", name="GPT-Terra 5.7", line=dict(color="#10b981", width=2.5)))
+        fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_astra"], mode="lines+markers", name="GPT-Astra 6.1", line=dict(color="#06b6d4", width=2.5)))
+        fig_o.add_trace(go.Scatter(x=df_daily["date"], y=df_daily["gpt_7"], mode="lines+markers", name="GPT-7 (Frontier)", line=dict(color="#ec4899", width=2.5)))
         fig_o.update_layout(
             template="plotly_dark",
-            xaxis_title="Date",
-            yaxis_title="Probability Density (%)",
+            xaxis_title="Calendar Date (September - October 2026)",
+            yaxis_title="Implied Daily Probability (%)",
             hovermode="x unified",
             margin=dict(l=20, r=20, t=20, b=20),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_o, use_container_width=True)
         
-        st.caption(f"Strict Normalization Checksum: Terra: {df_all['gpt_terra'].sum():.2f}% | Astra: {df_all['gpt_astra'].sum():.2f}% | GPT-7: {df_all['gpt_7'].sum():.2f}%")
-        st.dataframe(df_all[["date", "gpt_terra", "gpt_astra", "gpt_7"]].rename(columns={
+        st.caption(f"Post-October 31 Tail Probability: GPT-Terra 5.7: {tails['gpt_terra']}% | GPT-Astra 6.1: {tails['gpt_astra']}% | GPT-7 (Frontier): {tails['gpt_7']}%")
+        
+        table_o = df_daily[["date", "gpt_terra", "gpt_astra", "gpt_7"]].copy()
+        tail_row_o = pd.DataFrame([{
+            "date": "Post-October 31 (Tail)",
+            "gpt_terra": tails["gpt_terra"],
+            "gpt_astra": tails["gpt_astra"],
+            "gpt_7": tails["gpt_7"]
+        }])
+        table_o = pd.concat([table_o, tail_row_o], ignore_index=True)
+        st.dataframe(table_o.rename(columns={
             "date": "Calendar Date",
             "gpt_terra": "GPT-Terra (%)",
             "gpt_astra": "GPT-Astra (%)",
@@ -585,26 +621,17 @@ with tab2:
     col_summary, col_pie = st.columns([3, 2])
     
     with col_summary:
-        d_glite, _ = get_peak_metric(df_all, "gemini_flash_lite")
-        d_gflash, _ = get_peak_metric(df_all, "gemini_flash")
-        d_gpro, _ = get_peak_metric(df_all, "gemini_pro")
-        d_asonnet, _ = get_peak_metric(df_all, "claude_sonnet")
-        d_ahaiku, _ = get_peak_metric(df_all, "claude_haiku")
-        d_ac6, _ = get_peak_metric(df_all, "claude_6")
-        d_oterra, _ = get_peak_metric(df_all, "gpt_terra")
-        d_oastra, _ = get_peak_metric(df_all, "gpt_astra")
-        d_og7, _ = get_peak_metric(df_all, "gpt_7")
-        
         summary_rows = [
-            {"Lab": "Google", "Model": "Gemini Flash-Lite (3.6+)", "Window": d_glite, "Impact": "Distillation throughput"},
-            {"Lab": "Google", "Model": "Gemini Flash (3.9+ / 4.0)", "Window": d_gflash, "Impact": "Low-latency multimodal reasoning"},
-            {"Lab": "Google", "Model": "Gemini Pro", "Window": d_gpro, "Impact": "Frontier agentic coding & long context"},
-            {"Lab": "Anthropic", "Model": "Next Claude Sonnet", "Window": d_asonnet, "Impact": "Autonomous software engineering standard"},
-            {"Lab": "Anthropic", "Model": "Next Claude Haiku", "Window": d_ahaiku, "Impact": "Cost-efficient tool use execution"},
-            {"Lab": "Anthropic", "Model": "Claude 6", "Window": d_ac6, "Impact": "Next-generation epistemic architecture"},
-            {"Lab": "OpenAI", "Model": "GPT-Terra 5.7", "Window": d_oterra, "Impact": "Iterative developer workflow upgrade"},
-            {"Lab": "OpenAI", "Model": "GPT-Astra 6.1", "Window": d_oastra, "Impact": "Continuous test-time compute & planning"},
-            {"Lab": "OpenAI", "Model": "GPT-7", "Window": d_og7, "Impact": "Universal self-directed research agent"}
+            {"Lab": "Google", "Model": "Gemini Flash-Lite (3.6+)", "Window": d_lite, "Status": "Near-term distillation"},
+            {"Lab": "Google", "Model": "Gemini Flash (3.9+ / 4.0)", "Window": d_flash, "Status": "Low-latency multimodal"},
+            {"Lab": "Google", "Model": "Gemini Pro", "Window": d_pro, "Status": "Frontier agentic flagship"},
+            {"Lab": "Anthropic", "Model": "Next Claude Sonnet", "Window": d_sonnet, "Status": "Autonomous software standard"},
+            {"Lab": "Anthropic", "Model": "Next Claude Haiku", "Window": d_haiku, "Status": "Cost-efficient tool use"},
+            {"Lab": "Anthropic", "Model": "Claude Fable 5.2", "Window": d_fable, "Status": "Specialized reasoning checkpoint"},
+            {"Lab": "Anthropic", "Model": "Claude 6", "Window": "2027+ Horizon", "Status": "Next-gen epistemic leap (96% Post-Oct)"},
+            {"Lab": "OpenAI", "Model": "GPT-Terra 5.7", "Window": d_terra, "Status": "Developer workflow update"},
+            {"Lab": "OpenAI", "Model": "GPT-Astra 6.1", "Window": d_astra, "Status": "Test-time compute & planning"},
+            {"Lab": "OpenAI", "Model": "GPT-7", "Window": "2027+ Horizon", "Status": "Autonomous research frontier (97% Post-Oct)"}
         ]
         st.dataframe(pd.DataFrame(summary_rows), use_container_width=True)
 
