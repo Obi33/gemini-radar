@@ -133,43 +133,49 @@ render_html("""
 CANDIDATES = [("gemini-3.8-flash", 45.0), ("gemini-3.6-flash", 20.0), ("gemini-3.5-flash-lite", 12.0)]
 
 
-def M(name, lab, code, dt, status, notes, poly=None, personal_impact=20):
+def M(id_str, name, lab, code, dt, status, notes, poly=None, personal_impact=20):
     return {
-        "name": name, "lab": lab, "code": code, "poly": poly, "status": status,
-        "notes": notes, "source": "manual", "personal_impact": personal_impact,
+        "id": id_str,
+        "name": name, 
+        "lab": lab, 
+        "code": code, 
+        "poly": poly, 
+        "status": status,
+        "notes": notes, 
+        "source": "manual", 
+        "personal_impact": personal_impact,
         "target": datetime(*dt, 16, 0, tzinfo=timezone.utc)
     }
 
 
-# Calibrated model list. Sequential dependencies are enforced, preventing illiquid contracts from corrupting the timeline.
 MODELS = [
-    M("Claude Sonnet 5.5", "Anthropic", "ANTH", (2026, 9, 29), "CONFIRMED",
+    M("claude_sonnet_55", "Claude Sonnet 5.5", "Anthropic", "ANTH", (2026, 9, 29), "CONFIRMED",
       "Market median is Sep 29 (63% on Sep 28, 31% on Sep 29, 84% cumulative by Sep 29 on $51K vol). Imminent flagship release.", "Next Claude Sonnet", 62),
-    M("Claude Haiku 5.5", "Anthropic", "ANTH", (2026, 10, 8), "CONFIRMED",
+    M("claude_haiku_55", "Claude Haiku 5.5", "Anthropic", "ANTH", (2026, 10, 8), "CONFIRMED",
       "78% by Oct 15, 95% by Oct 31 ($11.7K vol). Anthropic confirmed Haiku directly follows Sonnet 5.5.", "Next Claude Haiku", 18),
-    M("Gemini Flash 3.9+", "Google DeepMind", "GOOG", (2026, 10, 13), "LIKELY",
+    M("gemini_flash_39", "Gemini Flash 3.9+", "Google DeepMind", "GOOG", (2026, 10, 13), "LIKELY",
       "51% by Oct 15, 94% by Nov 30. High-efficiency test run preceding the Gemini 4 flagship.", "Gemini Flash 3.9+", 24),
-    M("Claude Fable 5.2", "Anthropic", "ANTH", (2026, 10, 17), "SPECULATIVE",
+    M("claude_fable_52", "Claude Fable 5.2", "Anthropic", "ANTH", (2026, 10, 17), "SPECULATIVE",
       "55% by Oct 31, 92% by Dec 31 ($31K vol). Specialized structural reasoning.", "Next Fable 5.2+", 26),
-    M("GPT-Astra 6.1", "OpenAI", "OAI", (2026, 10, 18), "SPECULATIVE",
+    M("gpt_astra_61", "GPT-Astra 6.1", "OpenAI", "OAI", (2026, 10, 18), "SPECULATIVE",
       "17% by Oct 9, 61% by Oct 31 ($8K vol). Continuous planning and test-time reasoning upgrade.", "GPT-Astra 6.1", 32),
-    M("Grok 4.8", "SpaceXAI", "SXAI", (2026, 10, 19), "LIKELY",
+    M("grok_48", "Grok 4.8", "SpaceXAI", "SXAI", (2026, 10, 19), "LIKELY",
       "45% by Oct 31, 82% by Nov 30 on $1K vol. Interim Colossus run checkpoint.", "Grok 4.8+", 35),
-    M("Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 21), "LIKELY",
+    M("gemini_flash_lite_next", "Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 21), "LIKELY",
       "Calibrated to release alongside the Gemini 4 family. Polymarket order book ($56 vol) is distorted by illiquidity.", "Gemini Flash-Lite 3.6+", 20),
-    M("Gemini 4 / Pro Flagship", "Google DeepMind", "GOOG", (2026, 10, 21), "CONFIRMED",
+    M("gemini_4", "Gemini 4 / Pro Flagship", "Google DeepMind", "GOOG", (2026, 10, 21), "CONFIRMED",
       "True market median sits around Oct 20-22 ($1.4M vol; 77% by Oct 31). Oct 31 is the contract resolution date, not the peak launch mode.", "Gemini Pro Cumulative", 58),
-    M("GPT-Sol 6.1", "OpenAI", "OAI", (2026, 10, 24), "SPECULATIVE",
+    M("gpt_sol_61", "GPT-Sol 6.1", "OpenAI", "OAI", (2026, 10, 24), "SPECULATIVE",
       "Sol 6.0 deployed Sep 22. Speed-reasoning derivative trailing Astra.", "GPT-Sol 6.1", 24),
-    M("GPT-Luna 6.1", "OpenAI", "OAI", (2026, 10, 28), "SPECULATIVE",
+    M("gpt_luna_61", "GPT-Luna 6.1", "OpenAI", "OAI", (2026, 10, 28), "SPECULATIVE",
       "48% by Nov 30, 80% by Dec 31 on $1K vol. Compact sub-agent execution update.", "GPT-Luna 6.1", 20),
-    M("Next Claude Opus", "Anthropic", "ANTH", (2026, 11, 24), "LIKELY",
+    M("claude_opus_next", "Next Claude Opus", "Anthropic", "ANTH", (2026, 11, 24), "LIKELY",
       "69% by Nov 30, 88% by Dec 31 on $2.6K vol. Cadence interval following the Opus 5.5 release.", "Next Claude Opus", 44),
-    M("GPT-Terra 5.7", "OpenAI", "OAI", (2027, 1, 20), "SPECULATIVE",
+    M("gpt_terra_57", "GPT-Terra 5.7", "OpenAI", "OAI", (2027, 1, 20), "SPECULATIVE",
       "Polymarket/Release Oracle median sits in Q1 2027 (Jan 20 to Mar 15). Not an early Oct sprint.", "GPT-Terra 5.7", 16),
-    M("Claude 6", "Anthropic", "ANTH", (2027, 4, 30), "HORIZON",
+    M("claude_6", "Claude 6", "Anthropic", "ANTH", (2027, 4, 30), "HORIZON",
       "35% by Mar 31, 56% by Jun 30, 87% by Dec 31, 2027. Implied median is late April 2027.", "Claude 6", 78),
-    M("GPT-7", "OpenAI", "OAI", (2027, 8, 25), "HORIZON",
+    M("gpt_7", "GPT-7", "OpenAI", "OAI", (2027, 8, 25), "HORIZON",
       "34% by Jun 30, 2027 and 84% by Dec 31, 2027. True median lands around late August 2027.", "GPT-7", 85),
 ]
 
@@ -393,46 +399,49 @@ def load_market():
     return [r for r in results if r]
 
 
-def implied_median(options, min_volume=1000):
+def implied_median(options, min_volume=2000):
     """
-    Calculates the 50% crossing date from cumulative market strikes.
-    Requires at least $1,000 volume to override hand-calibrated dates.
+    Calculates 50% crossing date from cumulative strikes.
+    Requires at least $2,000 volume to override hand-calibrated dates.
     """
     now = now_utc()
-    pts = []
     total_vol = sum(o.get("volume", 0) for o in options)
-    
-    # Reject illiquid markets ($56 books like Flash-Lite)
     if total_vol < min_volume:
         return None
 
+    pts = []
     for o in options:
         txt = o["option"].lower().replace("before ", "").replace("by ", "").replace(",", "").strip()
-        for fmt in ("%B %d %Y", "%b %d %Y", "%B %d", "%b %d", "%Y-%m-%d"):
+        # Append year explicitly if missing to eliminate Python 3.14 deprecation warnings
+        has_year = any(str(y) in txt for y in (2026, 2027, 2028))
+        if not has_year:
+            txt = f"{txt} {now.year}"
+
+        for fmt in ("%B %d %Y", "%b %d %Y", "%Y-%m-%d"):
             try:
                 d = datetime.strptime(txt, fmt)
             except ValueError:
                 continue
-            if "%Y" not in fmt:
-                d = d.replace(year=now.year)
-                if d.replace(tzinfo=timezone.utc) < now - timedelta(days=120):
-                    d = d.replace(year=now.year + 1)
-            pts.append((d.replace(hour=16, minute=0, second=0, tzinfo=timezone.utc), o["implied_prob"]))
+            if not has_year and d.replace(tzinfo=timezone.utc) < now - timedelta(days=120):
+                d = d.replace(year=now.year + 1)
+            target_d = d.replace(hour=16, minute=0, second=0, tzinfo=timezone.utc)
+            if target_d >= now - timedelta(days=1):
+                pts.append((target_d, o["implied_prob"]))
             break
 
     if not pts:
         return None
     pts.sort()
 
-    # Case 1: First strike is already >= 50% (e.g. Sonnet 5.5 on Sep 28/29)
+    # Case 1: First strike is already >= 50%
     if pts[0][1] >= 0.50:
-        return pts[0][0]
+        # If imminent (within 4 days, e.g. Sonnet 5.5 on Sep 29), use it directly
+        if (pts[0][0] - now).days <= 4:
+            return pts[0][0]
+        # If the earliest strike is weeks away (e.g. Haiku at Oct 15 at 78%), do not interpolate backward to today
+        return None
 
-    # Case 2: Only strikes far in the future (e.g. Haiku with Oct 15 as first strike at 78%)
-    # Anchor to now only if first strike is reasonable and not an abrupt jump
-    if pts[0][0] > now:
-        pts.insert(0, (now, 0.0))
-
+    # Normal cumulative interpolation
     for (d0, p0), (d1, p1) in zip(pts, pts[1:]):
         if p0 <= 0.50 <= p1 and p1 > p0:
             frac = (0.50 - p0) / (p1 - p0)
@@ -446,23 +455,23 @@ def resolve_models(market):
     
     for m in MODELS:
         m = dict(m)
-        ev = by_label.get(m["poly"]) if m["poly"] else None
+        ev = by_label.get(m["poly"]) if m.get("poly") else None
         
-        # Flash-Lite protection: ignore illiquid $56 order book
-        if m["id"] == "gemini_flash_lite_next":
+        # Enforce manual date for Gemini Flash-Lite next (protect against $56 illiquid order book)
+        if m.get("id") == "gemini_flash_lite_next":
             out.append(m)
             continue
-            
+
         d = implied_median(ev["options"]) if ev else None
         if d and d > now_utc():
             m["target"], m["source"] = d, "market"
         out.append(m)
     
-    # Enforce Anthropic pipeline ordering: Haiku cannot precede Sonnet
-    sonnet_target = next((m["target"] for m in out if m["id"] == "claude_sonnet_55"), None)
+    # Precedence check: Haiku cannot precede Sonnet
+    sonnet_t = next((m["target"] for m in out if m.get("id") == "claude_sonnet_55"), None)
     for m in out:
-        if m["id"] == "claude_haiku_55" and sonnet_target:
-            if m["target"] <= sonnet_target:
+        if m.get("id") == "claude_haiku_55" and sonnet_t:
+            if m["target"] <= sonnet_t:
                 m["target"] = datetime(2026, 10, 8, 16, 0, tzinfo=timezone.utc)
                 m["source"] = "manual"
                 
@@ -729,9 +738,9 @@ with tab_personal:
     st.caption("Personalized timeline mapping status-quo biological senescence against AI-accelerated LEV crossover.")
 
     birth_date = datetime(2003, 12, 1, tzinfo=timezone.utc)
-    status_quo_death = birth_date + timedelta(days=int(75.0 * 365.25))  # Hungarian actuarial baseline: 75 years
-    lev_compressed = datetime(2036, 7, 1, tzinfo=timezone.utc)          # Compressed crossover point
-    extended_lifespan = datetime(2145, 12, 1, tzinfo=timezone.utc)       # Extended healthspan target
+    status_quo_death = birth_date + timedelta(days=int(75.0 * 365.25))
+    lev_compressed = datetime(2036, 7, 1, tzinfo=timezone.utc)
+    extended_lifespan = datetime(2145, 12, 1, tzinfo=timezone.utc)
 
     l1, l2, l3 = st.columns(3)
     with l1:
