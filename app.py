@@ -74,33 +74,33 @@ def M(name, lab, code, dt, status, notes, poly=None):
 # Manual fallback dates. Where "poly" matches a cumulative market, the market median replaces them.
 MODELS = [
     M("Claude Sonnet 5.5", "Anthropic", "ANTH", (2026, 9, 29), "CONFIRMED",
-      "Market median Sep 29 (75% by Sep 29, 82% by Sep 30). Imminent.", "Next Claude Sonnet"),
-    M("Gemini Flash 3.9+", "Google DeepMind", "GOOG", (2026, 10, 13), "LIKELY",
-      "Fast multimodal ramp ahead of the Gemini 4 flagship.", "Gemini Flash 3.9+"),
-    M("Claude Haiku 5.5", "Anthropic", "ANTH", (2026, 10, 20), "CONFIRMED",
-      "Only 8% by Sep 30. The 50% crossing sits around Oct 18 to 24.", "Next Claude Haiku"),
-    M("Gemini 4 / Pro Flagship", "Google DeepMind", "GOOG", (2026, 10, 21), "CONFIRMED",
-      "Median Oct 20 to 22. Oct 31 is the resolution deadline, not the peak.", "Gemini Pro Cumulative"),
-    M("Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 23), "LIKELY",
-      "High-throughput distilled model for low-latency pipelines."),
-    M("Claude Fable 5.2", "Anthropic", "ANTH", (2026, 10, 26), "SPECULATIVE",
-      "Creative and structural reasoning checkpoint trading for late October."),
-    M("Grok 4.8", "SpaceXAI", "SXAI", (2026, 10, 27), "LIKELY",
-      "Interim multi-agent checkpoint. Grok 5 median is priced for Dec 30."),
-    M("Next Claude Opus", "Anthropic", "ANTH", (2026, 11, 24), "LIKELY",
-      "Heavyweight reasoning model following Opus 5.5.", "Next Claude Opus"),
-    M("GPT-Astra 6.1", "OpenAI", "OAI", (2026, 12, 15), "SPECULATIVE",
-      "Point release. Books point to late Q4.", "GPT-Astra 6.1"),
-    M("GPT-Sol 6.1", "OpenAI", "OAI", (2027, 1, 10), "SPECULATIVE",
-      "Speed-reasoning derivative trailing Astra.", "GPT-Sol 6.1"),
-    M("GPT-Terra 5.7", "OpenAI", "OAI", (2027, 1, 20), "SPECULATIVE",
-      "Median sits in Q1 2027 (Jan 20 to Mar 15).", "GPT-Terra 5.7"),
-    M("GPT-Luna 6.1", "OpenAI", "OAI", (2027, 2, 15), "SPECULATIVE",
-      "Compact sub-agent update after the late 2026 releases."),
-    M("Claude 6", "Anthropic", "ANTH", (2027, 4, 30), "HORIZON",
-      "50% median Apr 30, 2027 (42% by Mar 31, 68% by Jun 30).", "Claude 6"),
-    M("GPT-7", "OpenAI", "OAI", (2027, 8, 25), "HORIZON",
-      "40% by Jun 30, 2027 and 74% by Dec 31, 2027.", "GPT-7"),
+      "51% by Sep 28, 84% by Sep 29 ($51K vol). Announced as coming within weeks.", "Next Claude Sonnet"),
+    M("Claude Haiku 5.5", "Anthropic", "ANTH", (2026, 10, 8), "CONFIRMED",
+      "78% by Oct 15, 95% by Oct 31. No earlier price point, so the median is extrapolated.", "Next Claude Haiku"),
+    M("Gemini Flash 3.9+", "Google DeepMind", "GOOG", (2026, 10, 20), "LIKELY",
+      "51% by Oct 15 and 54% by Oct 31 on thin volume, 94% by Nov 30.", "Gemini Flash 3.9+"),
+    M("Gemini 4 / Pro Flagship", "Google DeepMind", "GOOG", (2026, 10, 28), "CONFIRMED",
+      "Weekly market ($86K), normalised: ~35% by Oct 18, ~46% by Oct 25, ~59% by Nov 1. Google says Gemini 4 is in post-training."),
+    M("Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 30), "LIKELY",
+      "50% by Oct 31 on $56 of volume, 80% by Nov 30. Very thin.", "Gemini Flash-Lite 3.6+"),
+    M("Claude Fable 5.2", "Anthropic", "ANTH", (2026, 10, 28), "LIKELY",
+      "55% by Oct 31, 92% by Dec 31 ($31K).", "Next Fable 5.2+"),
+    M("Grok 4.8", "SpaceXAI", "SXAI", (2026, 11, 4), "LIKELY",
+      "45% by Oct 31, 82% by Nov 30 on $1K. Pretraining reportedly finished mid-Sep.", "Grok 4.8+"),
+    M("GPT-Astra 6.1", "OpenAI", "OAI", (2026, 10, 27), "LIKELY",
+      "17% by Oct 9, 61% by Oct 31 ($8K), 94% by Dec 31.", "GPT-Astra 6.1"),
+    M("Next Claude Opus", "Anthropic", "ANTH", (2026, 11, 20), "LIKELY",
+      "69% by Nov 30, 88% by Dec 31 on $2.6K. Opus 5 to 5.5 took about 60 days, which points to late Nov.", "Next Claude Opus"),
+    M("GPT-Luna 6.1", "OpenAI", "OAI", (2026, 12, 2), "SPECULATIVE",
+      "48% by Nov 30, 80% by Dec 31 on $1K.", "GPT-Luna 6.1"),
+    M("GPT-Sol 6.1", "OpenAI", "OAI", (2026, 12, 5), "SPECULATIVE",
+      "Only $80 traded, so this follows Luna. Sol 6 shipped Sep 22."),
+    M("GPT-Terra 5.7", "OpenAI", "OAI", (2026, 12, 10), "SPECULATIVE",
+      "About 43% by Nov 30 (Sep 24 quote). A GPT-6 Terra would also qualify."),
+    M("Claude 6", "Anthropic", "ANTH", (2027, 6, 2), "HORIZON",
+      "35% by Mar 31, 56% by Jun 30, 87% by Dec 31, 2027 (Sep 7 snapshot).", "Claude 6"),
+    M("GPT-7", "OpenAI", "OAI", (2027, 8, 28), "HORIZON",
+      "34% by Jun 30, 2027 and 84% by Dec 31, 2027.", "GPT-7"),
 ]
 
 POLYMARKET_EVENTS = [
@@ -116,6 +116,10 @@ POLYMARKET_EVENTS = [
     ("next-claude-haiku-released-byptptpt-20260701205353326", "Anthropic", "Next Claude Haiku"),
     ("next-claude-opus-released-byptptpt-20260923144500000", "Anthropic", "Next Claude Opus"),
     ("claude-6-released-byptptpt", "Anthropic", "Claude 6"),
+    ("next-fable-model-5pt2-released-byptptpt", "Anthropic", "Next Fable 5.2+"),
+    ("next-google-gemini-flash-lite-model-3pt6-released-byptptpt", "Google", "Gemini Flash-Lite 3.6+"),
+    ("next-gpt-luna-6pt1-released-byptptpt", "OpenAI", "GPT-Luna 6.1"),
+    ("next-grok-model-4pt8-released-by", "SpaceXAI", "Grok 4.8+"),
     ("next-french-presidential-election", "Geopolitics", "French Presidential Election"),
     ("balance-of-power-2026-midterms", "Geopolitics", "US Midterms Balance of Power"),
     ("will-cmi-declare-a-millennium-prize-problem-solved-by-20260723160122979", "Math", "CMI Millennium Prize Declaration"),
@@ -281,7 +285,10 @@ def implied_median(options):
     probs = [p for _, p in pts]
     if any(b < a - 0.03 for a, b in zip(probs, probs[1:])):
         return None  # not monotonic, so not a cumulative market
-    return next((d for d, p in pts if p >= 0.5), None)
+    for (d0, p0), (d1, p1) in zip(pts, pts[1:]):
+        if p0 < 0.5 <= p1:
+            return d0 + (d1 - d0) * ((0.5 - p0) / (p1 - p0))  # interpolate the 50% crossing
+    return None  # no bracketing points, keep the manual estimate
 
 
 def resolve_models(market):
@@ -336,7 +343,7 @@ models = resolve_models(market)
 
 st.title("⏱️ Frontier Board")
 st.caption("Release clocks driven by prediction markets where possible. Tags: market = live median, "
-           "manual = hand-set fallback. Estimates, not vendor commitments.")
+           "manual = my hand-interpolated estimate from the order books read on 2026-09-28. Estimates, not vendor commitments.")
 
 upcoming = sorted((m for m in models if m["target"] > now_utc()), key=lambda m: m["target"])
 h1, h2, h3, h4 = st.columns(4)
@@ -403,7 +410,7 @@ with tab_board:
 with tab_curves:
     st.subheader("Live market distributions")
     st.caption("Straight from the order books. Bars are implied probabilities per option, in market order.")
-    labeled = [e for e in market if e["entity"] in ("Google", "OpenAI", "Anthropic") and e["options"]]
+    labeled = [e for e in market if e["entity"] in ("Google", "OpenAI", "Anthropic", "SpaceXAI") and e["options"]]
     if labeled:
         pick = st.selectbox("Market", [f"{e['entity']} · {e['label']}" for e in labeled])
         ev = labeled[[f"{e['entity']} · {e['label']}" for e in labeled].index(pick)]
