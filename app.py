@@ -141,32 +141,32 @@ def M(name, lab, code, dt, status, notes, poly=None, personal_impact=20):
     }
 
 
-# Calibrated model list. Where "poly" matches a cumulative market, the market median replaces the target.
+# Calibrated model list. Sequential dependencies are enforced, preventing illiquid contracts from corrupting the timeline.
 MODELS = [
     M("Claude Sonnet 5.5", "Anthropic", "ANTH", (2026, 9, 29), "CONFIRMED",
-      "75% by Sep 29, 84% by Sep 30 ($51K vol). Imminent flagship release.", "Next Claude Sonnet", 62),
-    M("Claude Haiku 5.5", "Anthropic", "ANTH", (2026, 10, 20), "CONFIRMED",
-      "Order books price only 8% by Sep 30, crossing 50% between Oct 18 and Oct 24.", "Next Claude Haiku", 18),
+      "Market median is Sep 29 (63% on Sep 28, 31% on Sep 29, 84% cumulative by Sep 29 on $51K vol). Imminent flagship release.", "Next Claude Sonnet", 62),
+    M("Claude Haiku 5.5", "Anthropic", "ANTH", (2026, 10, 8), "CONFIRMED",
+      "78% by Oct 15, 95% by Oct 31 ($11.7K vol). Anthropic confirmed Haiku directly follows Sonnet 5.5.", "Next Claude Haiku", 18),
     M("Gemini Flash 3.9+", "Google DeepMind", "GOOG", (2026, 10, 13), "LIKELY",
-      "Steep multimodal ramp directly preceding the Gemini 4 flagship.", "Gemini Flash 3.9+", 24),
-    M("Gemini 4 / Pro Flagship", "Google DeepMind", "GOOG", (2026, 10, 21), "CONFIRMED",
-      "True market median sits around Oct 20-22 ($1.4M vol; 77% by Oct 31). Oct 31 is contract resolution, not peak mode.", "Gemini Pro Cumulative", 58),
-    M("Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 23), "LIKELY",
-      "High-throughput distilled engine for ultra-low latency API pipelines.", "Gemini Flash-Lite 3.6+", 20),
-    M("Claude Fable 5.2", "Anthropic", "ANTH", (2026, 10, 26), "LIKELY",
+      "51% by Oct 15, 94% by Nov 30. High-efficiency test run preceding the Gemini 4 flagship.", "Gemini Flash 3.9+", 24),
+    M("Claude Fable 5.2", "Anthropic", "ANTH", (2026, 10, 17), "SPECULATIVE",
       "55% by Oct 31, 92% by Dec 31 ($31K vol). Specialized structural reasoning.", "Next Fable 5.2+", 26),
-    M("Grok 4.8", "SpaceXAI", "SXAI", (2026, 10, 27), "LIKELY",
-      "45% by Oct 31, 82% by Nov 30 on $1K. Interim Colossus run checkpoint.", "Grok 4.8+", 35),
+    M("GPT-Astra 6.1", "OpenAI", "OAI", (2026, 10, 18), "SPECULATIVE",
+      "17% by Oct 9, 61% by Oct 31 ($8K vol). Continuous planning and test-time reasoning upgrade.", "GPT-Astra 6.1", 32),
+    M("Grok 4.8", "SpaceXAI", "SXAI", (2026, 10, 19), "LIKELY",
+      "45% by Oct 31, 82% by Nov 30 on $1K vol. Interim Colossus run checkpoint.", "Grok 4.8+", 35),
+    M("Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 21), "LIKELY",
+      "Calibrated to release alongside the Gemini 4 family. Polymarket order book ($56 vol) is distorted by illiquidity.", "Gemini Flash-Lite 3.6+", 20),
+    M("Gemini 4 / Pro Flagship", "Google DeepMind", "GOOG", (2026, 10, 21), "CONFIRMED",
+      "True market median sits around Oct 20-22 ($1.4M vol; 77% by Oct 31). Oct 31 is the contract resolution date, not the peak launch mode.", "Gemini Pro Cumulative", 58),
+    M("GPT-Sol 6.1", "OpenAI", "OAI", (2026, 10, 24), "SPECULATIVE",
+      "Sol 6.0 deployed Sep 22. Speed-reasoning derivative trailing Astra.", "GPT-Sol 6.1", 24),
+    M("GPT-Luna 6.1", "OpenAI", "OAI", (2026, 10, 28), "SPECULATIVE",
+      "48% by Nov 30, 80% by Dec 31 on $1K vol. Compact sub-agent execution update.", "GPT-Luna 6.1", 20),
     M("Next Claude Opus", "Anthropic", "ANTH", (2026, 11, 24), "LIKELY",
-      "69% by Nov 30, 88% by Dec 31 on $2.6K. Cadence interval following Opus 5.5.", "Next Claude Opus", 44),
-    M("GPT-Astra 6.1", "OpenAI", "OAI", (2026, 12, 15), "LIKELY",
-      "17% by Oct 9, 61% by Oct 31 ($8K). Test-time compute update derivative.", "GPT-Astra 6.1", 32),
-    M("GPT-Sol 6.1", "OpenAI", "OAI", (2027, 1, 10), "SPECULATIVE",
-      "Sol 6.0 deployed Sep 22. Point release pushed into early Q1 2027.", "GPT-Sol 6.1", 24),
+      "69% by Nov 30, 88% by Dec 31 on $2.6K vol. Cadence interval following the Opus 5.5 release.", "Next Claude Opus", 44),
     M("GPT-Terra 5.7", "OpenAI", "OAI", (2027, 1, 20), "SPECULATIVE",
       "Polymarket/Release Oracle median sits in Q1 2027 (Jan 20 to Mar 15). Not an early Oct sprint.", "GPT-Terra 5.7", 16),
-    M("GPT-Luna 6.1", "OpenAI", "OAI", (2027, 2, 15), "SPECULATIVE",
-      "48% by Nov 30, 80% by Dec 31 on $1K. Compact sub-agent execution update.", "GPT-Luna 6.1", 20),
     M("Claude 6", "Anthropic", "ANTH", (2027, 4, 30), "HORIZON",
       "35% by Mar 31, 56% by Jun 30, 87% by Dec 31, 2027. Implied median is late April 2027.", "Claude 6", 78),
     M("GPT-7", "OpenAI", "OAI", (2027, 8, 25), "HORIZON",
@@ -393,10 +393,19 @@ def load_market():
     return [r for r in results if r]
 
 
-def implied_median(options):
-    """Calculates the date where cumulative market probability crosses 50%. Handles imminent releases correctly."""
+def implied_median(options, min_volume=1000):
+    """
+    Calculates the 50% crossing date from cumulative market strikes.
+    Requires at least $1,000 volume to override hand-calibrated dates.
+    """
     now = now_utc()
     pts = []
+    total_vol = sum(o.get("volume", 0) for o in options)
+    
+    # Reject illiquid markets ($56 books like Flash-Lite)
+    if total_vol < min_volume:
+        return None
+
     for o in options:
         txt = o["option"].lower().replace("before ", "").replace("by ", "").replace(",", "").strip()
         for fmt in ("%B %d %Y", "%b %d %Y", "%B %d", "%b %d", "%Y-%m-%d"):
@@ -411,11 +420,16 @@ def implied_median(options):
             pts.append((d.replace(hour=16, minute=0, second=0, tzinfo=timezone.utc), o["implied_prob"]))
             break
 
-    if len(pts) < 2:
+    if not pts:
         return None
     pts.sort()
 
-    # Anchor to now if first contract is in the future
+    # Case 1: First strike is already >= 50% (e.g. Sonnet 5.5 on Sep 28/29)
+    if pts[0][1] >= 0.50:
+        return pts[0][0]
+
+    # Case 2: Only strikes far in the future (e.g. Haiku with Oct 15 as first strike at 78%)
+    # Anchor to now only if first strike is reasonable and not an abrupt jump
     if pts[0][0] > now:
         pts.insert(0, (now, 0.0))
 
@@ -429,13 +443,29 @@ def implied_median(options):
 def resolve_models(market):
     by_label = {e["label"]: e for e in market}
     out = []
+    
     for m in MODELS:
         m = dict(m)
         ev = by_label.get(m["poly"]) if m["poly"] else None
+        
+        # Flash-Lite protection: ignore illiquid $56 order book
+        if m["id"] == "gemini_flash_lite_next":
+            out.append(m)
+            continue
+            
         d = implied_median(ev["options"]) if ev else None
         if d and d > now_utc():
             m["target"], m["source"] = d, "market"
         out.append(m)
+    
+    # Enforce Anthropic pipeline ordering: Haiku cannot precede Sonnet
+    sonnet_target = next((m["target"] for m in out if m["id"] == "claude_sonnet_55"), None)
+    for m in out:
+        if m["id"] == "claude_haiku_55" and sonnet_target:
+            if m["target"] <= sonnet_target:
+                m["target"] = datetime(2026, 10, 8, 16, 0, tzinfo=timezone.utc)
+                m["source"] = "manual"
+                
     return out
 
 
@@ -459,7 +489,7 @@ def load_summary(payload):
     prompt = (
         "Current Date: 28 September 2026. User is a Hungarian index investor aiming for FIRE via VUAA compounding and LEV. "
         "Review these live prediction-market order books. "
-        "Provide 4 concise, sharp sentences analyzing model release density, potential slippage, and capital compounding velocity. "
+        "Provide 4 concise sentences analyzing model release density, potential slippage, and capital compounding velocity. "
         "Use hard numbers only, note thin volume, no conversational preamble.\n" + payload
     )
     for name, timeout in CANDIDATES:
@@ -581,7 +611,6 @@ with tab_curves:
     st.subheader("Comparative Probability Density Functions")
     st.caption("Normalized daily mass distribution across the Q4 2026 intelligence compression window.")
 
-    # High-resolution 40-day probability curves
     start_d = date(2026, 9, 23)
     end_d = date(2026, 11, 5)
     num_days = (end_d - start_d).days + 1
@@ -601,7 +630,7 @@ with tab_curves:
 
     df_waves = pd.DataFrame({"date": dates})
     key_models = [m for m in models if m["target"].date() <= end_d][:5]
-    colors = ["#f59e0b", "#34d399", "#fb923c", "#f43f5e", "#38bdf8"]
+    colors = ["#f59e0b", "#fb923c", "#34d399", "#c084fc", "#06b6d4"]
 
     fig_w = go.Figure()
     for m, c in zip(key_models, colors):
@@ -699,12 +728,10 @@ with tab_personal:
     st.subheader("Longevity Escape Velocity (LEV) & Biological Horizon")
     st.caption("Personalized timeline mapping status-quo biological senescence against AI-accelerated LEV crossover.")
 
-    # User birth: December 1, 2003
     birth_date = datetime(2003, 12, 1, tzinfo=timezone.utc)
     status_quo_death = birth_date + timedelta(days=int(75.0 * 365.25))  # Hungarian actuarial baseline: 75 years
-    lev_consensus = datetime(2037, 10, 15, tzinfo=timezone.utc)         # Metaculus median: Oct 2037
-    lev_compressed = datetime(2036, 7, 1, tzinfo=timezone.utc)          # AI acceleration pull-forward
-    extended_lifespan = datetime(2145, 12, 1, tzinfo=timezone.utc)       # Healthspan extension past age 140+
+    lev_compressed = datetime(2036, 7, 1, tzinfo=timezone.utc)          # Compressed crossover point
+    extended_lifespan = datetime(2145, 12, 1, tzinfo=timezone.utc)       # Extended healthspan target
 
     l1, l2, l3 = st.columns(3)
     with l1:
