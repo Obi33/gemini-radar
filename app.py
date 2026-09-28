@@ -22,8 +22,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Dark Grok-style terminal aesthetic with segmented digital displays
-st.markdown("""
+# Robust HTML renderer that strips leading indentation so Markdown never triggers code blocks
+def render_html(html_str):
+    cleaned = "\n".join(line.strip() for line in html_str.strip().splitlines())
+    st.markdown(cleaned, unsafe_allow_html=True)
+
+# Dark Grok-style terminal styling
+render_html("""
 <style>
     .hero-container {
         background: radial-gradient(circle at top right, #1e1b4b 0%, #0f172a 60%, #020617 100%);
@@ -49,24 +54,24 @@ st.markdown("""
     }
     .clock-row {
         display: flex;
-        gap: 0.75rem;
+        gap: 0.65rem;
         align-items: center;
         flex-wrap: wrap;
-        margin: 1rem 0;
+        margin: 0.85rem 0;
     }
     .digital-block {
-        background: #090d16;
+        background: #070b12;
         border: 1px solid #1e293b;
         border-radius: 0.5rem;
-        padding: 0.75rem 1rem;
+        padding: 0.65rem 0.9rem;
         text-align: center;
-        min-width: 70px;
+        min-width: 62px;
     }
     .digital-val {
         font-family: 'JetBrains Mono', 'Courier New', monospace;
-        font-size: 1.9rem;
+        font-size: 1.85rem;
         font-weight: 800;
-        color: #f1f5f9;
+        color: #f8fafc;
         line-height: 1;
     }
     .digital-sub {
@@ -83,10 +88,6 @@ st.markdown("""
         border-radius: 0.75rem;
         padding: 1.15rem;
         margin-bottom: 0.85rem;
-        transition: transform 0.15s ease, border-color 0.15s ease;
-    }
-    .model-card:hover {
-        border-color: #3b82f6;
     }
     .badge-confirmed {
         background: #064e3b;
@@ -149,7 +150,7 @@ st.markdown("""
         padding-bottom: 0.35rem;
     }
 </style>
-""", unsafe_allow_html=True)
+""")
 
 def get_budapest_now():
     try:
@@ -158,7 +159,7 @@ def get_budapest_now():
     except Exception:
         return datetime.now(timezone(timedelta(hours=2)))
 
-# Grok's Official 14 Tracked Frontier Models + Target Date Contracts
+# Grok's Official 14 Tracked Frontier Models
 GROK_FRONTIER_MODELS = [
     {
         "id": "claude_sonnet_55",
@@ -401,28 +402,9 @@ def format_countdown_parts(target_dt):
     return days, hours, minutes, seconds
 
 def render_digital_clock_html(days, hours, minutes, seconds, size="normal"):
-    font_size = "1.85rem" if size == "normal" else "2.4rem"
-    min_w = "60px" if size == "normal" else "76px"
-    return f"""
-    <div class="clock-row">
-        <div class="digital-block" style="min-width:{min_w};">
-            <div class="digital-val" style="font-size:{font_size};">{days}</div>
-            <div class="digital-sub">Days</div>
-        </div>
-        <div class="digital-block" style="min-width:{min_w};">
-            <div class="digital-val" style="font-size:{font_size};">{hours:02d}</div>
-            <div class="digital-sub">Hours</div>
-        </div>
-        <div class="digital-block" style="min-width:{min_w};">
-            <div class="digital-val" style="font-size:{font_size};">{minutes:02d}</div>
-            <div class="digital-sub">Min</div>
-        </div>
-        <div class="digital-block" style="min-width:{min_w};">
-            <div class="digital-val" style="font-size:{font_size};">{seconds:02d}</div>
-            <div class="digital-sub">Sec</div>
-        </div>
-    </div>
-    """
+    font_size = "1.85rem" if size == "normal" else "2.35rem"
+    min_w = "58px" if size == "normal" else "74px"
+    return f"""<div class="clock-row"><div class="digital-block" style="min-width:{min_w};"><div class="digital-val" style="font-size:{font_size};">{days}</div><div class="digital-sub">Days</div></div><div class="digital-block" style="min-width:{min_w};"><div class="digital-val" style="font-size:{font_size};">{hours:02d}</div><div class="digital-sub">Hours</div></div><div class="digital-block" style="min-width:{min_w};"><div class="digital-val" style="font-size:{font_size};">{minutes:02d}</div><div class="digital-sub">Min</div></div><div class="digital-block" style="min-width:{min_w};"><div class="digital-val" style="font-size:{font_size};">{seconds:02d}</div><div class="digital-sub">Sec</div></div></div>"""
 
 def fetch_single_event(item):
     slug = item["slug"]
@@ -504,7 +486,7 @@ def execute_gemini_guaranteed(client, prompt):
                     return result_text, f"{m} (Medium Thinking · Google AI Studio)", None
         except TimeoutError:
             continue
-        except Exception as e:
+        except Exception:
             continue
     return None, "Calibrated Baseline Engine (Fast Failsafe)", "API limit reached or queued"
 
@@ -650,37 +632,37 @@ st.caption("One live countdown per tracked model. Confirmed windows first. Specu
 # Top Macro HUD
 top1, top2, top3, top4 = st.columns(4)
 with top1:
-    st.markdown(f"""
+    render_html(f"""
     <div class="digital-block" style="text-align:left;">
         <div class="digital-sub">FIRE Deflation Score</div>
         <div class="digital-val" style="color:#10b981;">{exec_m.get('fire_deflation_score', 88)}/100</div>
         <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">Compounding Velocity</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 with top2:
-    st.markdown(f"""
+    render_html(f"""
     <div class="digital-block" style="text-align:left;">
         <div class="digital-sub">LEV Acceleration Index</div>
         <div class="digital-val" style="color:#38bdf8;">{exec_m.get('lev_acceleration_score', 81)}/100</div>
         <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">Healthspan Multiplier</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 with top3:
-    st.markdown(f"""
+    render_html(f"""
     <div class="digital-block" style="text-align:left;">
         <div class="digital-sub">Alan's AGI Countdown</div>
         <div class="digital-val" style="color:#f59e0b;">{exec_m.get('alan_agi_pct', 99.0)}%</div>
         <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">Completion: {exec_m.get('alan_agi_completion_date', 'Late 2026')}</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 with top4:
-    st.markdown(f"""
+    render_html(f"""
     <div class="digital-block" style="text-align:left;">
         <div class="digital-sub">Metaculus Full AGI</div>
         <div class="digital-val" style="color:#c084fc;">May 2028</div>
         <div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">Epistemic Crowd Median</div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
 st.write("")
 
@@ -696,11 +678,11 @@ tab_board, tab_curves, tab_personal, tab_geo, tab_alan, tab_audit = st.tabs([
 
 # --- TAB 1: Release Clock Board (Grok Visual Design Fusion) ---
 with tab_board:
-    # 1. Hero Unit: Next on the Board
+    # 1. Hero Unit: Next on the Board[cite: 17]
     next_model = GROK_FRONTIER_MODELS[0]
     h_days, h_hours, h_mins, h_secs = format_countdown_parts(next_model["target_utc"])
     
-    st.markdown(f"""
+    render_html(f"""
     <div class="hero-container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
             <div class="hero-label">NEXT ON THE BOARD · {len(GROK_FRONTIER_MODELS)} CLOCKS TRACKED</div>
@@ -716,9 +698,9 @@ with tab_board:
             {next_model['notes']}
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """)
 
-    # 2. Filter Bar
+    # 2. Filter Bar[cite: 17]
     filter_col1, filter_col2 = st.columns([3, 2])
     with filter_col1:
         selected_lab = st.radio(
@@ -730,7 +712,7 @@ with tab_board:
     with filter_col2:
         hide_horizon = st.toggle("Hide Horizon & Rumor Clocks (Show Near-Term Only)", value=False)
 
-    # Filter application
+    # Filter application[cite: 17]
     filtered_models = GROK_FRONTIER_MODELS.copy()
     if selected_lab != "All":
         filtered_models = [m for m in filtered_models if m["lab"] == selected_lab]
@@ -745,7 +727,7 @@ with tab_board:
         badge_class = f"badge-{model['status'].lower()}"
         
         with target_col:
-            st.markdown(f"""
+            render_html(f"""
             <div class="model-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <span class="lab-tag">{model['lab_code']} {model['lab']}</span>
@@ -767,7 +749,7 @@ with tab_board:
                     {model['notes']}
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
     st.caption("Clocks are estimates derived from prediction market orders and official announcements, not vendor commitments. Times shown in UTC.")
 
@@ -776,7 +758,6 @@ with tab_curves:
     st.subheader("📈 Probability Density Functions (Daily Mass Across Calendar Days)")
     st.caption("Continuous Gaussian distributions normalized to 100% with midweek crests and weekend baseline floors.")
     
-    # Generate calibrated 40-day curves
     start_d = date(2026, 9, 23)
     end_d = date(2026, 10, 31)
     num_days = (end_d - start_d).days + 1
@@ -843,35 +824,35 @@ with tab_personal:
 
     col_p1, col_p2, col_p3 = st.columns(3)
     with col_p1:
-        st.markdown(f"""
-        <div class="countdown-box">
-            <div class="countdown-sub">Most Probable Personal LEV Arrival</div>
+        render_html(f"""
+        <div class="model-card" style="text-align:center;">
+            <div class="digital-sub">Most Probable Personal LEV Arrival</div>
             {render_digital_clock_html(p_d1, p_h1, p_m1, p_s1, size='normal')}
             <div style="font-size:0.8rem; color:#a5b4fc; margin-top:0.4rem;">
                 Target: {dt_lev_compressed.strftime('%B %Y')} (Compressed by {lev_comp_m}mo)
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
     with col_p2:
-        st.markdown(f"""
-        <div class="countdown-box">
-            <div class="countdown-sub">Countdown to Personal FIRE</div>
+        render_html(f"""
+        <div class="model-card" style="text-align:center;">
+            <div class="digital-sub">Countdown to Personal FIRE</div>
             {render_digital_clock_html(p_d2, p_h2, p_m2, p_s2, size='normal')}
             <div style="font-size:0.8rem; color:#a5b4fc; margin-top:0.4rem;">
                 Target: {dt_fire_compressed.strftime('%B %Y')} (60M HUF Compounding)
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
     with col_p3:
-        st.markdown(f"""
-        <div class="countdown-box">
-            <div class="countdown-sub">Longevity Horizon / Death Countdown</div>
+        render_html(f"""
+        <div class="model-card" style="text-align:center;">
+            <div class="digital-sub">Longevity Horizon / Death Countdown</div>
             {render_digital_clock_html(p_d3, p_h3, p_m3, p_s3, size='normal')}
             <div style="font-size:0.8rem; color:#a5b4fc; margin-top:0.4rem;">
                 LEV-Extended Biological Horizon: ~2145+ (Age 140+)
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
     st.caption("Note on Death Countdown: The status-quo Hungarian actuarial baseline points to **December 2078** (Age 75, ~52 years remaining). Reaching LEV in early/mid 2036 with 42 years of biological buffer allows subsequent annual rejuvenation breakthroughs to extend healthspan past **2145+**.")
 
@@ -883,32 +864,32 @@ with tab_personal:
 
     col_ag1, col_ag2, col_ag3 = st.columns(3)
     with col_ag1:
-        st.markdown(f"""
+        render_html(f"""
         <div class="model-card">
             <div class="lab-tag">Metaculus Question #3479</div>
             <div style="font-size:1.15rem; font-weight:800; color:#f8fafc; margin:0.25rem 0;">Weakly General AI</div>
             {render_digital_clock_html(w_d, w_h, w_m, w_s, size='normal')}
             <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.35rem;">Target: February 2027</div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
     with col_ag2:
-        st.markdown(f"""
+        render_html(f"""
         <div class="model-card">
             <div class="lab-tag">Metaculus Question #5121</div>
             <div style="font-size:1.15rem; font-weight:800; color:#f8fafc; margin:0.25rem 0;">Full AGI Consensus</div>
             {render_digital_clock_html(f_d, f_h, f_m, f_s, size='normal')}
             <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.35rem;">Target: May 2028</div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
     with col_ag3:
-        st.markdown(f"""
+        render_html(f"""
         <div class="model-card">
             <div class="lab-tag">Superintelligence Benchmark</div>
             <div style="font-size:1.15rem; font-weight:800; color:#f8fafc; margin:0.25rem 0;">Artificial Superintelligence (ASI)</div>
             {render_digital_clock_html(a_d, a_h, a_m, a_s, size='normal')}
             <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.35rem;">Target: Late 2030 (~29mo post-AGI)</div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
 # --- TAB 4: Geopolitics & Personal Impact Matrix ---
 with tab_geo:
@@ -919,7 +900,7 @@ with tab_geo:
     for item in geo_list:
         eff = item["net_personal_effect"]
         eff_color = "#10b981" if eff > 0 else "#ef4444"
-        st.markdown(f"""
+        render_html(f"""
         <div class="model-card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span class="lab-tag">{item['event']} · Probability: {item['probability_pct']}%</span>
@@ -932,14 +913,14 @@ with tab_geo:
                 <strong>Transmission Mechanism:</strong> {item['transmission']}
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
 # --- TAB 5: Alan Thompson Milestones & Math ---
 with tab_alan:
     st.subheader("🧠 Alan Thompson (LifeArchitect.ai) AGI / ASI Tracking")
     col_al1, col_al2 = st.columns([1, 2])
     with col_al1:
-        st.markdown(f"""
+        render_html(f"""
         <div class="digital-block" style="text-align:left; padding:1.25rem;">
             <div class="digital-sub">Alan's Conservative AGI Countdown</div>
             <div class="digital-val" style="color:#f59e0b; margin:0.4rem 0;">99% Achieved</div>
@@ -947,11 +928,11 @@ with tab_alan:
                 Est. Completion: Late 2026. Guides official AI policy for Microsoft, UN, and G7.
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
     with col_al2:
         achieved = sum(1 for m in STATIC_ALAN_50_INDICATORS if m["status"] == "Achieved")
         in_prog = sum(1 for m in STATIC_ALAN_50_INDICATORS if m["status"] == "In Progress")
-        st.markdown(f"""
+        render_html(f"""
         <div class="digital-block" style="text-align:left; padding:1.25rem;">
             <div class="digital-sub">Alan's ASI Indicators (First 50 Milestones)</div>
             <div class="digital-val" style="color:#38bdf8; margin:0.4rem 0;">{achieved}/50 Completed · {in_prog} In Progress</div>
@@ -959,7 +940,7 @@ with tab_alan:
                 Target date for final milestone #50 (Closed-Loop ASI Engine): <strong>April 2030</strong>.
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
     with st.expander("📋 Inspect Alan Thompson's 50 ASI Indicators (Live Status & Target Dates)"):
         st.dataframe(pd.DataFrame(STATIC_ALAN_50_INDICATORS), height=400)
