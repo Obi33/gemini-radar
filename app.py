@@ -1,5 +1,5 @@
 """
-Frontier Board | Release Clocks, Market Odds, FIRE & LEV Horizon Engine
+Frontier Board | Model Release Clocks, Benchmark Stakes & FIRE/LEV Engine
 
 Requirements: streamlit>=1.37, requests, pandas, plotly, google-genai (optional)
 Secrets: GEMINI_API_KEY (optional, used for 4-sentence macroeconomic executive briefs)
@@ -110,6 +110,7 @@ render_html("""
 .badge-speculative { background: #451a03; color: #fbbf24; border: 1px solid #d97706; }
 .badge-horizon { background: #3b0764; color: #c084fc; border: 1px solid #9333ea; }
 .badge-market { background: #134e4a; color: #5eead4; border: 1px solid #0d9488; }
+.badge-cadence { background: #1e1b4b; color: #a5b4fc; border: 1px solid #4338ca; }
 .badge-manual { background: #1e293b; color: #94a3b8; border: 1px solid #475569; }
 .lab-tag {
     font-size: 0.68rem;
@@ -133,71 +134,131 @@ render_html("""
 CANDIDATES = [("gemini-3.8-flash", 45.0), ("gemini-3.6-flash", 20.0), ("gemini-3.5-flash-lite", 12.0)]
 
 
-def M(id_str, name, lab, code, dt, status, notes, poly=None, personal_impact=20):
+def M(id_str, name, lab, code, dt, status, notes, poly_cumulative=None, poly_discrete=None, personal_impact=20):
     return {
         "id": id_str,
-        "name": name, 
-        "lab": lab, 
-        "code": code, 
-        "poly": poly, 
+        "name": name,
+        "lab": lab,
+        "code": code,
+        "poly_cumulative": poly_cumulative,
+        "poly_discrete": poly_discrete,
         "status": status,
-        "notes": notes, 
-        "source": "manual", 
+        "notes": notes,
+        "source": "manual",
         "personal_impact": personal_impact,
         "target": datetime(*dt, 16, 0, tzinfo=timezone.utc)
     }
 
 
+# Comprehensive Model Registry calibrated across all monitored Polymarket events
 MODELS = [
     M("claude_sonnet_55", "Claude Sonnet 5.5", "Anthropic", "ANTH", (2026, 9, 29), "CONFIRMED",
-      "Market median is Sep 29 (63% on Sep 28, 31% on Sep 29, 84% cumulative by Sep 29 on $51K vol). Imminent flagship release.", "Next Claude Sonnet", 62),
+      "Market prices Sep 28 (63%) and Sep 29 (31%) on $11K+ volume, with 84% cumulative probability by Sep 29. Imminent drop.",
+      poly_cumulative="Next Claude Sonnet Cumulative", poly_discrete="Next Claude Sonnet Daily Date", personal_impact=62),
+
     M("claude_haiku_55", "Claude Haiku 5.5", "Anthropic", "ANTH", (2026, 10, 8), "CONFIRMED",
-      "78% by Oct 15, 95% by Oct 31 ($11.7K vol). Anthropic confirmed Haiku directly follows Sonnet 5.5.", "Next Claude Haiku", 18),
+      "78% by Oct 15, 95% by Oct 31 ($11.7K vol). Anthropic confirmed Haiku directly follows Sonnet 5.5 in coming weeks.",
+      poly_cumulative="Next Claude Haiku", personal_impact=18),
+
     M("gemini_flash_39", "Gemini Flash 3.9+", "Google DeepMind", "GOOG", (2026, 10, 13), "LIKELY",
-      "51% by Oct 15, 94% by Nov 30. High-efficiency test run preceding the Gemini 4 flagship.", "Gemini Flash 3.9+", 24),
+      "51% by Oct 15, 94% by Nov 30. High-efficiency test run directly leading into the Gemini 4 flagship.",
+      poly_cumulative="Gemini Flash 3.9+", personal_impact=24),
+
     M("claude_fable_52", "Claude Fable 5.2", "Anthropic", "ANTH", (2026, 10, 17), "SPECULATIVE",
-      "55% by Oct 31, 92% by Dec 31 ($31K vol). Specialized structural reasoning.", "Next Fable 5.2+", 26),
+      "55% by Oct 31, 92% by Dec 31 ($31K vol). Specialized structural reasoning checkpoint.",
+      poly_cumulative="Next Fable 5.2+", personal_impact=26),
+
     M("gpt_astra_61", "GPT-Astra 6.1", "OpenAI", "OAI", (2026, 10, 18), "SPECULATIVE",
-      "17% by Oct 9, 61% by Oct 31 ($8K vol). Continuous planning and test-time reasoning upgrade.", "GPT-Astra 6.1", 32),
+      "17% by Oct 9, 61% by Oct 31 ($8K vol). Continuous planning and test-time reasoning upgrade.",
+      poly_cumulative="GPT-Astra 6.1", personal_impact=32),
+
     M("grok_48", "Grok 4.8", "SpaceXAI", "SXAI", (2026, 10, 19), "LIKELY",
-      "45% by Oct 31, 82% by Nov 30 on $1K vol. Interim Colossus run checkpoint.", "Grok 4.8+", 35),
-    M("gemini_flash_lite_next", "Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 21), "LIKELY",
-      "Calibrated to release alongside the Gemini 4 family. Polymarket order book ($56 vol) is distorted by illiquidity.", "Gemini Flash-Lite 3.6+", 20),
+      "45% by Oct 31, 82% by Nov 30 on $1K vol. Interim Colossus run checkpoint.",
+      poly_cumulative="Grok 4.8+", personal_impact=35),
+
     M("gemini_4", "Gemini 4 / Pro Flagship", "Google DeepMind", "GOOG", (2026, 10, 21), "CONFIRMED",
-      "True market median sits around Oct 20-22 ($1.4M vol; 77% by Oct 31). Oct 31 is the contract resolution date, not the peak launch mode.", "Gemini Pro Cumulative", 58),
+      "True market median sits at Oct 20-22 ($1.4M vol; 77% by Oct 31). Oct 31 is the contract expiration date, not the mode.",
+      poly_cumulative="Gemini Pro Cumulative", poly_discrete="Next Gemini Pro Daily Date", personal_impact=58),
+
+    M("gemini_flash_lite_next", "Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 21), "LIKELY",
+      "Distilled lightweight engine calibrated to launch alongside the Gemini 4 family. Polymarket $56 book is illiquid.",
+      poly_cumulative="Gemini Flash-Lite 3.6+", personal_impact=20),
+
     M("gpt_sol_61", "GPT-Sol 6.1", "OpenAI", "OAI", (2026, 10, 24), "SPECULATIVE",
-      "Sol 6.0 deployed Sep 22. Speed-reasoning derivative trailing Astra.", "GPT-Sol 6.1", 24),
+      "Sol 6.0 deployed Sep 22. Speed-reasoning derivative trailing Astra.",
+      poly_cumulative="GPT-Sol 6.1", personal_impact=24),
+
     M("gpt_luna_61", "GPT-Luna 6.1", "OpenAI", "OAI", (2026, 10, 28), "SPECULATIVE",
-      "48% by Nov 30, 80% by Dec 31 on $1K vol. Compact sub-agent execution update.", "GPT-Luna 6.1", 20),
+      "48% by Nov 30, 80% by Dec 31 on $1K vol. Compact sub-agent execution model.",
+      poly_cumulative="GPT-Luna 6.1", personal_impact=20),
+
     M("claude_opus_next", "Next Claude Opus", "Anthropic", "ANTH", (2026, 11, 24), "LIKELY",
-      "69% by Nov 30, 88% by Dec 31 on $2.6K vol. Cadence interval following the Opus 5.5 release.", "Next Claude Opus", 44),
+      "69% by Nov 30, 88% by Dec 31 on $2.6K vol. Cadence interval following Opus 5.5.",
+      poly_cumulative="Next Claude Opus", personal_impact=44),
+
     M("gpt_terra_57", "GPT-Terra 5.7", "OpenAI", "OAI", (2027, 1, 20), "SPECULATIVE",
-      "Polymarket/Release Oracle median sits in Q1 2027 (Jan 20 to Mar 15). Not an early Oct sprint.", "GPT-Terra 5.7", 16),
+      "Polymarket/Release Oracle median sits in Q1 2027 (Jan 20 to Mar 15). Not an early Oct sprint.",
+      poly_cumulative="GPT-Terra 5.7", personal_impact=16),
+
     M("claude_6", "Claude 6", "Anthropic", "ANTH", (2027, 4, 30), "HORIZON",
-      "35% by Mar 31, 56% by Jun 30, 87% by Dec 31, 2027. Implied median is late April 2027.", "Claude 6", 78),
+      "35% by Mar 31, 56% by Jun 30, 87% by Dec 31, 2027. Implied median is late April 2027.",
+      poly_cumulative="Claude 6", personal_impact=78),
+
     M("gpt_7", "GPT-7", "OpenAI", "OAI", (2027, 8, 25), "HORIZON",
-      "34% by Jun 30, 2027 and 84% by Dec 31, 2027. True median lands around late August 2027.", "GPT-7", 85),
+      "34% by Jun 30, 2027 and 84% by Dec 31, 2027. True median lands around late August 2027.",
+      poly_cumulative="GPT-7", personal_impact=85),
 ]
 
+# Full 34-Event Polymarket Tracking Registry (incorporating all requested links)
 POLYMARKET_EVENTS = [
-    ("when-will-the-next-google-gemini-pro-model-be-released-20260817144359068", "Google", "Gemini Pro"),
-    ("next-google-gemini-pro-model-released-byptptpt", "Google", "Gemini Pro Cumulative"),
+    # Google Gemini Models & Intervals
     ("gemini-4pt0-released-by-june-30-2026", "Google", "Gemini 4.0 Flash"),
     ("next-gemini-flash-model-3pt9-released-byptptpt", "Google", "Gemini Flash 3.9+"),
+    ("next-google-gemini-flash-lite-model-3pt6-released-byptptpt", "Google", "Gemini Flash-Lite 3.6+"),
+    ("next-gemini-pro-model-released-onptptpt-20260922131618444", "Google", "Next Gemini Pro Daily Date"),
+    ("when-will-the-next-google-gemini-pro-model-be-released-20260817144359068", "Google", "Gemini Pro Interval Window"),
+    ("next-google-gemini-pro-model-released-byptptpt", "Google", "Gemini Pro Cumulative"),
+
+    # Google Gemini Benchmarks & Arena
+    ("next-google-gemini-pro-model-humanitys-last-exam-debut-20260729192434644", "Benchmarks", "Gemini Pro HLE Debut"),
+    ("highest-google-gemini-score-on-humanitys-last-exam-in-2026-20260723192605545", "Benchmarks", "Highest Gemini HLE Score 2026"),
+    ("next-google-gemini-pro-model-arena-debut", "Benchmarks", "Gemini Pro Arena Debut Score"),
+
+    # Anthropic Claude Models
+    ("next-claude-sonnet-released-onptptpt-20260921225443", "Anthropic", "Next Claude Sonnet Daily Date"),
+    ("next-claude-sonnet-released-byptptpt-20260701203831153", "Anthropic", "Next Claude Sonnet Cumulative"),
+    ("next-claude-haiku-released-byptptpt-20260701205353326", "Anthropic", "Next Claude Haiku"),
+    ("next-fable-model-5pt2-released-byptptpt", "Anthropic", "Next Fable 5.2+"),
+    ("next-claude-opus-released-byptptpt-20260923144500000", "Anthropic", "Next Claude Opus"),
+    ("claude-6-released-byptptpt", "Anthropic", "Claude 6"),
+
+    # Anthropic Claude Benchmarks & Arena
+    ("next-sonnet-model-text-arena-debut-20260827110151621", "Benchmarks", "Sonnet Text Arena Debut"),
+    ("next-claude-opus-model-humanitys-last-exam-debut-20261231", "Benchmarks", "Claude Opus HLE Debut"),
+    ("highest-claude-score-on-humanitys-last-exam-in-2026-20260723190836285", "Benchmarks", "Highest Claude HLE Score 2026"),
+
+    # OpenAI Models
     ("next-openai-gpt-terra-5pt7-released-byptptpt", "OpenAI", "GPT-Terra 5.7"),
     ("gpt-astra-6pt1-released-byptptpt", "OpenAI", "GPT-Astra 6.1"),
     ("next-gpt-sol-6pt1-released-byptptpt", "OpenAI", "GPT-Sol 6.1"),
-    ("gpt-7-released-byptptpt", "OpenAI", "GPT-7"),
-    ("next-claude-sonnet-released-byptptpt-20260701203831153", "Anthropic", "Next Claude Sonnet"),
-    ("next-claude-haiku-released-byptptpt-20260701205353326", "Anthropic", "Next Claude Haiku"),
-    ("next-claude-opus-released-byptptpt-20260923144500000", "Anthropic", "Next Claude Opus"),
-    ("claude-6-released-byptptpt", "Anthropic", "Claude 6"),
-    ("next-fable-model-5pt2-released-byptptpt", "Anthropic", "Next Fable 5.2+"),
-    ("next-google-gemini-flash-lite-model-3pt6-released-byptptpt", "Google", "Gemini Flash-Lite 3.6+"),
     ("next-gpt-luna-6pt1-released-byptptpt", "OpenAI", "GPT-Luna 6.1"),
+    ("gpt-7-released-byptptpt", "OpenAI", "GPT-7"),
+    ("highest-openai-score-on-humanitys-last-exam-in-2026-20260723225144062", "Benchmarks", "Highest OpenAI HLE Score 2026"),
+
+    # SpaceXAI / xAI
     ("next-grok-model-4pt8-released-by", "SpaceXAI", "Grok 4.8+"),
+
+    # Frontier AI Crown & Arena Race Markets
+    ("which-companys-ai-will-first-hit-1550-on-chatbot-arena-in-2026", "Crown", "First to Hit 1550 on Arena"),
+    ("which-company-has-the-best-ai-model-end-of-october", "Crown", "Best AI Model End of October"),
+    ("which-company-has-the-best-ai-model-end-of-november", "Crown", "Best AI Model End of November"),
+    ("which-company-has-best-ai-model-end-of-2026", "Crown", "Best AI Model End of 2026"),
+
+    # Macro Geopolitics
     ("next-french-presidential-election", "Geopolitics", "French Presidential Election"),
     ("balance-of-power-2026-midterms", "Geopolitics", "US Midterms Balance of Power"),
+
+    # Millennium Mathematics Markets
     ("will-cmi-declare-a-millennium-prize-problem-solved-by-20260723160122979", "Math", "CMI Millennium Prize Declaration"),
     ("ai-lab-announces-another-millennium-prize-solution-by", "Math", "AI Lab Announces Millennium Solution"),
     ("which-millennium-prize-problem-will-ai-solve-next", "Math", "Which Millennium Problem Next"),
@@ -392,17 +453,59 @@ def fetch_event(item):
         return None
 
 
-@st.cache_data(ttl=600, show_spinner="Syncing Polymarket order books in parallel...")
+@st.cache_data(ttl=600, show_spinner="Syncing 34 Polymarket contracts in parallel...")
 def load_market():
-    with ThreadPoolExecutor(max_workers=8) as ex:
+    with ThreadPoolExecutor(max_workers=10) as ex:
         results = list(ex.map(fetch_event, POLYMARKET_EVENTS))
     return [r for r in results if r]
 
 
-def implied_median(options, min_volume=2000):
+def parse_discrete_date_market(options, min_volume=1000):
     """
-    Calculates 50% crossing date from cumulative strikes.
-    Requires at least $2,000 volume to override hand-calibrated dates.
+    Parses discrete daily date contracts (e.g. 'September 28', 'September 29', 'October 16').
+    Returns the peak probability date if volume >= min_volume and peak >= 25%.
+    """
+    now = now_utc()
+    total_vol = sum(o.get("volume", 0) for o in options)
+    if total_vol < min_volume:
+        return None
+
+    date_candidates = []
+    for o in options:
+        txt = o["option"].lower().replace(",", "").strip()
+        if "no release" in txt:
+            continue
+        has_year = any(str(y) in txt for y in (2026, 2027, 2028))
+        if not has_year:
+            txt = f"{txt} {now.year}"
+
+        for fmt in ("%B %d %Y", "%b %d %Y", "%Y-%m-%d"):
+            try:
+                d = datetime.strptime(txt, fmt)
+            except ValueError:
+                continue
+            if not has_year and d.replace(tzinfo=timezone.utc) < now - timedelta(days=120):
+                d = d.replace(year=now.year + 1)
+            target_d = d.replace(hour=16, minute=0, second=0, tzinfo=timezone.utc)
+            if target_d >= now - timedelta(days=1):
+                date_candidates.append((target_d, o["implied_prob"], o["volume"]))
+            break
+
+    if not date_candidates:
+        return None
+
+    # Pick the mode (highest probability date)
+    date_candidates.sort(key=lambda x: x[1], reverse=True)
+    best_date, best_prob, _ = date_candidates[0]
+    if best_prob >= 0.25:
+        return best_date
+    return None
+
+
+def parse_cumulative_market(options, min_volume=1500):
+    """
+    Calculates the 50% crossing date from cumulative strikes.
+    Requires at least $1,500 volume to override hand-calibrated dates.
     """
     now = now_utc()
     total_vol = sum(o.get("volume", 0) for o in options)
@@ -412,7 +515,6 @@ def implied_median(options, min_volume=2000):
     pts = []
     for o in options:
         txt = o["option"].lower().replace("before ", "").replace("by ", "").replace(",", "").strip()
-        # Append year explicitly if missing to eliminate Python 3.14 deprecation warnings
         has_year = any(str(y) in txt for y in (2026, 2027, 2028))
         if not has_year:
             txt = f"{txt} {now.year}"
@@ -429,19 +531,17 @@ def implied_median(options, min_volume=2000):
                 pts.append((target_d, o["implied_prob"]))
             break
 
-    if not pts:
+    if len(pts) < 2:
         return None
     pts.sort()
 
     # Case 1: First strike is already >= 50%
     if pts[0][1] >= 0.50:
-        # If imminent (within 4 days, e.g. Sonnet 5.5 on Sep 29), use it directly
         if (pts[0][0] - now).days <= 4:
             return pts[0][0]
-        # If the earliest strike is weeks away (e.g. Haiku at Oct 15 at 78%), do not interpolate backward to today
         return None
 
-    # Normal cumulative interpolation
+    # Case 2: Linear interpolation between brackets
     for (d0, p0), (d1, p1) in zip(pts, pts[1:]):
         if p0 <= 0.50 <= p1 and p1 > p0:
             frac = (0.50 - p0) / (p1 - p0)
@@ -449,32 +549,60 @@ def implied_median(options, min_volume=2000):
     return None
 
 
-def resolve_models(market):
+def resolve_all_models(market):
+    """
+    Estimates the release of every single model by testing discrete daily markets,
+    cumulative strike curves, and liquidity rules.
+    """
     by_label = {e["label"]: e for e in market}
     out = []
-    
+
     for m in MODELS:
         m = dict(m)
-        ev = by_label.get(m["poly"]) if m.get("poly") else None
-        
-        # Enforce manual date for Gemini Flash-Lite next (protect against $56 illiquid order book)
+
+        # 1. Enforce cadence lock for Flash-Lite (rejects illiquid $56 order book)
         if m.get("id") == "gemini_flash_lite_next":
+            m["source"] = "cadence"
             out.append(m)
             continue
 
-        d = implied_median(ev["options"]) if ev else None
-        if d and d > now_utc():
-            m["target"], m["source"] = d, "market"
+        # 2. Check Discrete Daily Market First (e.g. Sonnet Sep 28/29, Gemini Pro Oct 16)
+        discrete_target = None
+        if m.get("poly_discrete"):
+            ev_d = by_label.get(m["poly_discrete"])
+            if ev_d:
+                discrete_target = parse_discrete_date_market(ev_d["options"], min_volume=1000)
+
+        if discrete_target and discrete_target > now_utc():
+            m["target"] = discrete_target
+            m["source"] = "market"
+            out.append(m)
+            continue
+
+        # 3. Check Cumulative 'Released By' Market
+        cumulative_target = None
+        if m.get("poly_cumulative"):
+            ev_c = by_label.get(m["poly_cumulative"])
+            if ev_c:
+                cumulative_target = parse_cumulative_market(ev_c["options"], min_volume=1500)
+
+        if cumulative_target and cumulative_target > now_utc():
+            m["target"] = cumulative_target
+            m["source"] = "market"
+            out.append(m)
+            continue
+
+        # 4. Fallback to Calibrated Pipeline Date
         out.append(m)
-    
-    # Precedence check: Haiku cannot precede Sonnet
+
+    # 5. Enforce Anthropic Pipeline Order: Haiku 5.5 follows Sonnet 5.5
     sonnet_t = next((m["target"] for m in out if m.get("id") == "claude_sonnet_55"), None)
     for m in out:
         if m.get("id") == "claude_haiku_55" and sonnet_t:
             if m["target"] <= sonnet_t:
                 m["target"] = datetime(2026, 10, 8, 16, 0, tzinfo=timezone.utc)
                 m["source"] = "manual"
-                
+
     return out
 
 
@@ -522,10 +650,10 @@ def load_summary(payload):
     return None, "All candidate models timed out"
 
 
-# ---------------------------------------------------------------- App Layout
+# ---------------------------------------------------------------- App Execution
 
 market = load_market()
-models = resolve_models(market)
+models = resolve_all_models(market)
 
 st.title("⏱️ Frontier Board")
 st.caption("Precision intelligence dashboard tracking frontier model releases, FIRE velocity, and Longevity Escape Velocity. Times shown in UTC and Budapest time.")
@@ -539,11 +667,16 @@ next_days_text = f"{countdown_parts(upcoming[0]['target'])[0]} days" if upcoming
 h1.metric("Next on Board", next_model_text, next_days_text, delta_color="off")
 h2.metric("Clocks Tracked", len(models), "14 Models Active")
 h3.metric("Live Market Feeds", f"{len(market)}/{len(POLYMARKET_EVENTS)}", "Polymarket Gamma")
-h4.metric("Market-Calibrated", sum(m["source"] == "market" for m in models), f"{sum(m['source'] == 'manual' for m in models)} Manual Backstops")
+h4.metric("Market-Calibrated", sum(m["source"] == "market" for m in models), f"{sum(m['source'] != 'market' for m in models)} Pipeline Backstops")
 
-tab_board, tab_curves, tab_personal, tab_geo, tab_alan, tab_audit = st.tabs([
-    "⏱️ Release Clocks", "📈 Probability Waves", "🧬 FIRE & LEV Horizon",
-    "🏛️ Geopolitics", "🧠 Milestones & Math", "🔍 Order Book Audit"
+tab_board, tab_crown, tab_curves, tab_personal, tab_geo, tab_alan, tab_audit = st.tabs([
+    "⏱️ Release Clocks", 
+    "👑 AI Frontier Crown & Benchmarks",
+    "📈 Probability Waves", 
+    "🧬 FIRE & LEV Horizon",
+    "🏛️ Geopolitics", 
+    "🧠 Milestones & Math", 
+    "🔍 Order Book Audit"
 ])
 
 # ---- Tab 1: Grok-Style Release Board
@@ -615,7 +748,71 @@ with tab_board:
             st.caption("Passed target window: " + ", ".join(released))
 
 
-# ---- Tab 2: Probability Waves & Live Distributions
+# ---- Tab 2: AI Frontier Crown & Benchmarks
+with tab_crown:
+    st.subheader("👑 Frontier AI Crown & Superiority Stakes")
+    st.caption("Live prediction market odds on model superiority, Chatbot Arena milestones, and Humanity's Last Exam (HLE).")
+
+    by_lbl = {e["label"]: e for e in market}
+
+    # Section 1: Crown Races
+    cr_col1, cr_col2, cr_col3 = st.columns(3)
+    with cr_col1:
+        ev = by_lbl.get("Best AI Model End of October")
+        st.markdown("**Best Model: End of October**")
+        if ev and ev["options"]:
+            st.dataframe(options_df(ev["options"], 4), hide_index=True)
+    with cr_col2:
+        ev = by_lbl.get("Best AI Model End of November")
+        st.markdown("**Best Model: End of November**")
+        if ev and ev["options"]:
+            st.dataframe(options_df(ev["options"], 4), hide_index=True)
+    with cr_col3:
+        ev = by_lbl.get("Best AI Model End of 2026")
+        st.markdown("**Best Model: End of 2026**")
+        if ev and ev["options"]:
+            st.dataframe(options_df(ev["options"], 4), hide_index=True)
+
+    st.divider()
+
+    # Section 2: Chatbot Arena & HLE Benchmarks
+    b_col1, b_col2 = st.columns(2)
+    with b_col1:
+        st.subheader("🥊 Chatbot Arena Races")
+        ev_1550 = by_lbl.get("First to Hit 1550 on Arena")
+        if ev_1550 and ev_1550["options"]:
+            st.markdown("**First AI to Hit 1550 on Arena in 2026**")
+            st.dataframe(options_df(ev_1550["options"], 5), hide_index=True)
+
+        ev_sonnet_arena = by_lbl.get("Sonnet Text Arena Debut")
+        if ev_sonnet_arena and ev_sonnet_arena["options"]:
+            st.markdown("**Next Sonnet Model: Text Arena Debut Score**")
+            st.dataframe(options_df(ev_sonnet_arena["options"], 4), hide_index=True)
+
+        ev_gemini_arena = by_lbl.get("Gemini Pro Arena Debut Score")
+        if ev_gemini_arena and ev_gemini_arena["options"]:
+            st.markdown("**Next Gemini Pro: Arena Debut Score**")
+            st.dataframe(options_df(ev_gemini_arena["options"], 4), hide_index=True)
+
+    with b_col2:
+        st.subheader("🎓 Humanity's Last Exam (HLE) Stakes")
+        ev_gemini_hle = by_lbl.get("Highest Gemini HLE Score 2026")
+        if ev_gemini_hle and ev_gemini_hle["options"]:
+            st.markdown("**Highest Google Gemini Score on HLE in 2026**")
+            st.dataframe(options_df(ev_gemini_hle["options"], 4), hide_index=True)
+
+        ev_claude_hle = by_lbl.get("Highest Claude HLE Score 2026")
+        if ev_claude_hle and ev_claude_hle["options"]:
+            st.markdown("**Highest Claude Score on HLE in 2026**")
+            st.dataframe(options_df(ev_claude_hle["options"], 4), hide_index=True)
+
+        ev_openai_hle = by_lbl.get("Highest OpenAI HLE Score 2026")
+        if ev_openai_hle and ev_openai_hle["options"]:
+            st.markdown("**Highest OpenAI Score on HLE in 2026**")
+            st.dataframe(options_df(ev_openai_hle["options"], 4), hide_index=True)
+
+
+# ---- Tab 3: Probability Waves & Live Distributions
 with tab_curves:
     st.subheader("Comparative Probability Density Functions")
     st.caption("Normalized daily mass distribution across the Q4 2026 intelligence compression window.")
@@ -661,7 +858,7 @@ with tab_curves:
 
     st.divider()
     st.subheader("Live Polymarket Order Book Distributions")
-    labeled = [e for e in market if e["entity"] in ("Google", "OpenAI", "Anthropic", "SpaceXAI") and e["options"]]
+    labeled = [e for e in market if e["entity"] in ("Google", "OpenAI", "Anthropic", "SpaceXAI", "Crown") and e["options"]]
     if labeled:
         pick = st.selectbox("Market Event", [f"{e['entity']} · {e['label']}" for e in labeled])
         ev = labeled[[f"{e['entity']} · {e['label']}" for e in labeled].index(pick)]
@@ -691,7 +888,7 @@ with tab_curves:
     st.write(summary or f"Unavailable ({engine}).")
 
 
-# ---- Tab 3: Personal FIRE & Longevity Escape Velocity
+# ---- Tab 4: Personal FIRE & Longevity Escape Velocity
 with tab_personal:
     st.subheader("Personal FIRE Engine & Compounding Velocity")
     st.caption("Calculated in constant today's HUF for asset compounding via VUAA inside a tax-sheltered TBSZ account.")
@@ -775,7 +972,7 @@ with tab_personal:
         """)
 
 
-# ---- Tab 4: Geopolitics & Personal Transmission Matrix
+# ---- Tab 5: Geopolitics & Personal Transmission Matrix
 with tab_geo:
     st.subheader("Geopolitical Transmission & Personal Life Impact Matrix")
     st.caption("Quantified transmission channels to Hungarian cost of living, EUR/HUF currency stability, and VUAA ETF compounding.")
@@ -806,7 +1003,7 @@ with tab_geo:
         st.dataframe(options_df(ev["options"], 8), hide_index=True)
 
 
-# ---- Tab 5: Alan Thompson Milestones & Millennium Math
+# ---- Tab 6: Alan Thompson Milestones & Millennium Math
 with tab_alan:
     st.subheader("Alan Thompson (LifeArchitect.ai) ASI Milestones")
     st.caption("Tracks the conservative 50-indicator trajectory toward artificial superintelligence.")
@@ -843,7 +1040,7 @@ with tab_alan:
         st.dataframe(options_df(ev["options"], 8), hide_index=True)
 
 
-# ---- Tab 6: Live Epistemic & Order Book Audit
+# ---- Tab 7: Live Epistemic & Order Book Audit
 with tab_audit:
     st.subheader("Raw Prediction Market Order Books")
     missing = [lbl for _, _, lbl in POLYMARKET_EVENTS if lbl not in {e["label"] for e in market}]
