@@ -1,15 +1,18 @@
 """
 Frontier Board | Model Release Clocks, Benchmark Stakes & FIRE/LEV Engine
 
-Requirements: streamlit>=1.37, requests, pandas, plotly, google-genai (optional)
+Requirements: streamlit>=1.37, requests, pandas, plotly, tzdata (Windows only),
+              google-genai (optional)
 Secrets: GEMINI_API_KEY (optional, used for 4-sentence macroeconomic executive briefs)
 """
 import html
 import json
-import os
 import math
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
-from datetime import datetime, date, timedelta, timezone
+import os
+import re
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -17,26 +20,57 @@ import requests
 import streamlit as st
 
 try:
-    import zoneinfo
-except ImportError:
-    from backports import zoneinfo
+    from zoneinfo import ZoneInfo
+except ImportError:  # Python < 3.9
+    from backports.zoneinfo import ZoneInfo
 
 try:
     from google import genai
     from google.genai import types
 except ImportError:
-    genai = None
+    genai = types = None
 
 st.set_page_config(
-    page_title="Frontier Board | Intelligence, Capital & LEV", 
-    page_icon="⏱️", 
+    page_title="Frontier Board | Intelligence, Capital & LEV",
+    page_icon="⏱️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
+
+# ---------------------------------------------------------------- Configuration
+
+MARKET_TTL = 600     # seconds a Polymarket snapshot stays cached
+SUMMARY_TTL = 3600   # seconds a Gemini brief stays cached
+GAMMA_URL = "https://gamma-api.polymarket.com/events"
+
+try:
+    BUDAPEST = ZoneInfo("Europe/Budapest")
+except Exception:  # tzdata missing. Fixed +2h is only right in summer, so install tzdata.
+    BUDAPEST = timezone(timedelta(hours=2))
+
+# Anthropic ships Haiku after Sonnet. If a market date puts Haiku first, push it this far behind.
+HAIKU_LAG_DAYS = 9
+# Order books too thin to trust: always use the calibrated cadence date.
+ILLIQUID_IDS = {"gemini_flash_lite_next"}
+
+# Personal / scenario assumptions. Move to st.secrets if this app or repo is ever public.
+BIRTH_DATE = datetime(2003, 12, 1, tzinfo=timezone.utc)
+LIFE_EXPECTANCY_YEARS = 75.0
+LEV_ARRIVAL = datetime(2036, 7, 1, tzinfo=timezone.utc)
+EXTENDED_HORIZON = datetime(2145, 12, 1, tzinfo=timezone.utc)
+ALAN_AGI_GAUGE = ("99.0%", "Est. Completion: Q4 2026")
+
+# Probability-wave chart
+PLOT_HORIZON_DAYS = 38
+PLOT_COLORS = ["#f59e0b", "#fb923c", "#34d399", "#c084fc", "#06b6d4", "#f472b6", "#a3e635"]
+# Releases cluster Tue to Thu, taper Mon/Fri, and rarely land on weekends.
+WEEKDAY_RELEASE_WEIGHT = {0: 0.75, 1: 1.0, 2: 1.0, 3: 1.0, 4: 0.6, 5: 0.15, 6: 0.15}
 
 
 def render_html(s):
-    cleaned = "\n".join(line.strip() for line in s.strip().splitlines())
+    """Render an HTML snippet. Lines are stripped so markdown never treats indentation as a code
+    block, and blank lines are dropped because a blank line ends a markdown HTML block early."""
+    cleaned = "\n".join(line.strip() for line in s.splitlines() if line.strip())
     st.markdown(cleaned, unsafe_allow_html=True)
 
 
@@ -265,11 +299,6 @@ POLYMARKET_EVENTS = [
 ]
 
 MANUAL_AS_OF = "2026-09-28"
-MILESTONES = [
-    ("Weakly General AI (Metaculus #3479)", datetime(2027, 2, 1, tzinfo=timezone.utc)),
-    ("Full AGI (Metaculus #5121)", datetime(2028, 5, 1, tzinfo=timezone.utc)),
-    ("ASI Benchmark (Consensus Median)", datetime(2030, 10, 1, tzinfo=timezone.utc)),
-]
 
 GEOPOLITICS_TRANSMISSION = [
     {
@@ -380,29 +409,39 @@ ALAN = [
     ("Recursive Closed-Loop ASI Research & Iteration Engine", "Superintelligence", N, "2030-04"),
 ]
 
-# ---------------------------------------------------------------- Helpers
+# ---------------------------------------------------------------- Time helpers
 
 
 def now_utc():
     return datetime.now(timezone.utc)
 
 
-def budapest_now():
-    try:
-        return datetime.now(zoneinfo.ZoneInfo("Europe/Budapest"))
-    except Exception:
-        return datetime.now(timezone(timedelta(hours=2)))
+def to_budapest(dt):
+    return dt.astimezone(BUDAPEST)
 
 
-def countdown_parts(target):
-    secs = int((target - now_utc()).total_seconds())
+def age_at(dt):
+    return (dt - BIRTH_DATE).days / 365.25
+
+
+def countdown_parts(target, now=None):
+    now = now or now_utc()
+    secs = int((target - now).total_seconds())
     if secs <= 0:
         return 0, 0, 0, 0
     return secs // 86400, (secs % 86400) // 3600, (secs % 3600) // 60, secs % 60
 
 
-def clock_html(target, large=False):
-    d, h, m, s = countdown_parts(target)
+def eta_text(target, now):
+    d, h, m, _ = countdown_parts(target, now)
+    return f"in {d}d {h}h" if d else f"in {h}h {m}m"
+
+
+# ---------------------------------------------------------------- HTML fragments
+
+
+def clock_html(target, now=None, large=False):
+    d, h, m, s = countdown_parts(target, now)
     fs, mw = ("2.35rem", "74px") if large else ("1.85rem", "58px")
     blocks = "".join(
         f'<div class="digital-block" style="min-width:{mw}"><div class="digital-val" '
@@ -419,6 +458,31 @@ def badges(model):
     return f'{status_b} {source_b} &nbsp; {impact_b}'
 
 
+def model_card_html(m, now):
+    target = m["target"]
+    return f"""
+    <div class="model-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="lab-tag">{m['code']} {html.escape(m['lab'])}</span>
+            <span>{badges(m)}</span>
+        </div>
+        <div style="font-size:1.25rem; font-weight:800; color:#f8fafc; margin:0.35rem 0;">
+            {html.escape(m['name'])}
+        </div>
+        {clock_html(target, now)}
+        <div style="color:#94a3b8; font-size:0.85rem; font-weight:600;">
+            Target: {target.strftime('%d %b %Y %H:%M UTC')} ({to_budapest(target).strftime('%H:%M')} Budapest)
+        </div>
+        <div style="color:#64748b; font-size:0.8rem; margin-top:0.35rem; line-height:1.35;">
+            {html.escape(m['notes'])}
+        </div>
+    </div>
+    """
+
+
+# ---------------------------------------------------------------- Polymarket
+
+
 def get_api_key():
     try:
         return st.secrets["GEMINI_API_KEY"]
@@ -426,289 +490,353 @@ def get_api_key():
         return os.environ.get("GEMINI_API_KEY")
 
 
-def fetch_event(item):
-    slug, entity, label = item
+def _to_float(value, default=0.0):
     try:
-        res = requests.get("https://gamma-api.polymarket.com/events", params={"slug": slug}, timeout=4)
-        if res.status_code != 200:
-            return None
-        data = res.json()
-        if not data:
-            return None
-        
-        event_obj = data[0] if isinstance(data, list) else data
-        options = []
-        for m in event_obj.get("markets", []):
-            q = m.get("question", "")
-            title = m.get("groupItemTitle", "") or q
-            try:
-                yes = float(json.loads(m.get("outcomePrices", '["0.5","0.5"]'))[0])
-            except Exception:
-                yes = 0.5
-            vol = float(m.get("volumeNum", 0) or m.get("volume", 0) or 0)
-            implied = round(1.0 - yes, 4) if "no release" in (q + " " + title).lower() else round(yes, 4)
-            options.append({"option": title, "implied_prob": implied, "raw_yes": yes, "volume": vol})
-        return {"label": label, "entity": entity, "slug": slug, "options": options}
-    except Exception:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_yes_price(raw):
+    """outcomePrices is normally a JSON-encoded list like '["0.63","0.37"]' but may already be a list."""
+    prices = json.loads(raw) if isinstance(raw, str) else raw
+    return float(prices[0])
+
+
+def fetch_event(item):
+    """Fetch one Polymarket event. Returns None on failure so one bad slug never breaks the board."""
+    slug, entity, label = item
+    data = None
+    for attempt in range(2):
+        try:
+            res = requests.get(GAMMA_URL, params={"slug": slug}, timeout=(3, 5))
+            if res.status_code == 200:
+                data = res.json()
+                break
+            if res.status_code < 500 and res.status_code != 429:
+                return None  # 404 and friends: retrying will not help
+        except (requests.RequestException, ValueError):
+            pass
+        if attempt == 0:
+            time.sleep(0.3)
+    if not data:
         return None
 
+    event_obj = data[0] if isinstance(data, list) else data
+    options = []
+    for m in event_obj.get("markets", []):
+        question = m.get("question") or ""
+        title = m.get("groupItemTitle") or question
+        try:
+            yes = _parse_yes_price(m.get("outcomePrices"))
+        except (TypeError, ValueError, IndexError):
+            continue  # no usable price: skip it instead of inventing a 50% quote
+        volume = _to_float(m.get("volumeNum") or m.get("volume"))
+        inverted = "no release" in f"{question} {title}".lower()
+        options.append({
+            "option": title,
+            "implied_prob": round(1.0 - yes, 4) if inverted else round(yes, 4),
+            "raw_yes": yes,
+            "volume": volume,
+        })
+    return {"label": label, "entity": entity, "slug": slug, "options": options}
 
-@st.cache_data(ttl=600, show_spinner="Syncing 34 Polymarket contracts in parallel...")
+
+@st.cache_data(ttl=MARKET_TTL, show_spinner=f"Syncing {len(POLYMARKET_EVENTS)} Polymarket contracts in parallel...")
 def load_market():
     with ThreadPoolExecutor(max_workers=10) as ex:
-        results = list(ex.map(fetch_event, POLYMARKET_EVENTS))
-    return [r for r in results if r]
+        results = [r for r in ex.map(fetch_event, POLYMARKET_EVENTS) if r]
+    if not results:
+        # Raising keeps a total outage out of the cache, so the next rerun retries immediately.
+        raise RuntimeError("Polymarket returned no data")
+    return results
 
 
-def parse_discrete_date_market(options, min_volume=1000):
-    """
-    Parses discrete daily date contracts (e.g. 'September 28', 'September 29', 'October 16').
-    Returns the peak probability date if volume >= min_volume and peak >= 25%.
-    """
-    now = now_utc()
-    total_vol = sum(o.get("volume", 0) for o in options)
-    if total_vol < min_volume:
+# ---------------------------------------------------------------- Market-to-date logic
+
+_YEAR_RE = re.compile(r"\b20\d{2}\b")
+_PREFIX_RE = re.compile(r"^(?:before|by)\s+")
+_DATE_FORMATS = ("%B %d %Y", "%b %d %Y", "%Y-%m-%d")
+_GRACE = timedelta(days=1)             # keep dates that passed within the last day
+_ROLLOVER = timedelta(days=120)        # a yearless date older than this means "next year"
+
+
+def parse_option_date(text, now):
+    """'By October 15' or 'September 28' -> datetime at 16:00 UTC, or None if it is not a date."""
+    txt = _PREFIX_RE.sub("", text.lower().replace(",", "").strip())
+    if not txt:
         return None
-
-    date_candidates = []
-    for o in options:
-        txt = o["option"].lower().replace(",", "").strip()
-        if "no release" in txt:
+    has_year = bool(_YEAR_RE.search(txt))
+    candidate = txt if has_year else f"{txt} {now.year}"
+    for fmt in _DATE_FORMATS:
+        try:
+            parsed = datetime.strptime(candidate, fmt)
+        except ValueError:
             continue
-        has_year = any(str(y) in txt for y in (2026, 2027, 2028))
-        if not has_year:
-            txt = f"{txt} {now.year}"
-
-        for fmt in ("%B %d %Y", "%b %d %Y", "%Y-%m-%d"):
+        parsed = parsed.replace(hour=16, minute=0, second=0, tzinfo=timezone.utc)
+        if not has_year and parsed < now - _ROLLOVER:
             try:
-                d = datetime.strptime(txt, fmt)
-            except ValueError:
-                continue
-            if not has_year and d.replace(tzinfo=timezone.utc) < now - timedelta(days=120):
-                d = d.replace(year=now.year + 1)
-            target_d = d.replace(hour=16, minute=0, second=0, tzinfo=timezone.utc)
-            if target_d >= now - timedelta(days=1):
-                date_candidates.append((target_d, o["implied_prob"], o["volume"]))
-            break
-
-    if not date_candidates:
-        return None
-
-    # Pick the mode (highest probability date)
-    date_candidates.sort(key=lambda x: x[1], reverse=True)
-    best_date, best_prob, _ = date_candidates[0]
-    if best_prob >= 0.25:
-        return best_date
+                parsed = parsed.replace(year=parsed.year + 1)
+            except ValueError:  # Feb 29 landing in a non-leap year
+                return None
+        return parsed
     return None
 
 
-def parse_cumulative_market(options, min_volume=1500):
-    """
-    Calculates the 50% crossing date from cumulative strikes.
-    Requires at least $1,500 volume to override hand-calibrated dates.
-    """
-    now = now_utc()
-    total_vol = sum(o.get("volume", 0) for o in options)
-    if total_vol < min_volume:
+def parse_discrete_date_market(options, now, min_volume=1000, min_peak=0.25):
+    """Daily contracts ('September 28', 'September 29', ...). Returns the modal date when the
+    book has enough volume and the peak carries at least `min_peak` probability."""
+    if sum(o.get("volume", 0) for o in options) < min_volume:
         return None
+    candidates = []
+    for o in options:
+        if "no release" in o["option"].lower():
+            continue
+        d = parse_option_date(o["option"], now)
+        if d and d >= now - _GRACE:
+            candidates.append((o["implied_prob"], d))
+    if not candidates:
+        return None
+    prob, best = max(candidates, key=lambda c: c[0])
+    return best if prob >= min_peak else None
 
+
+def parse_cumulative_market(options, now, min_volume=1500):
+    """'Released by <date>' strikes -> the date the curve crosses 50%, by linear interpolation.
+    Needs enough volume to override the hand-calibrated date."""
+    if sum(o.get("volume", 0) for o in options) < min_volume:
+        return None
     pts = []
     for o in options:
-        txt = o["option"].lower().replace("before ", "").replace("by ", "").replace(",", "").strip()
-        has_year = any(str(y) in txt for y in (2026, 2027, 2028))
-        if not has_year:
-            txt = f"{txt} {now.year}"
-
-        for fmt in ("%B %d %Y", "%b %d %Y", "%Y-%m-%d"):
-            try:
-                d = datetime.strptime(txt, fmt)
-            except ValueError:
-                continue
-            if not has_year and d.replace(tzinfo=timezone.utc) < now - timedelta(days=120):
-                d = d.replace(year=now.year + 1)
-            target_d = d.replace(hour=16, minute=0, second=0, tzinfo=timezone.utc)
-            if target_d >= now - timedelta(days=1):
-                pts.append((target_d, o["implied_prob"]))
-            break
-
+        d = parse_option_date(o["option"], now)
+        if d and d >= now - _GRACE:
+            pts.append((d, o["implied_prob"]))
     if len(pts) < 2:
         return None
-    pts.sort()
+    pts.sort(key=lambda p: p[0])
 
-    # Case 1: First strike is already >= 50%
+    # First live strike already at or above 50%: only trust it when it is imminent.
     if pts[0][1] >= 0.50:
-        if (pts[0][0] - now).days <= 4:
-            return pts[0][0]
-        return None
+        return pts[0][0] if (pts[0][0] - now).days <= 4 else None
 
-    # Case 2: Linear interpolation between brackets
     for (d0, p0), (d1, p1) in zip(pts, pts[1:]):
         if p0 <= 0.50 <= p1 and p1 > p0:
-            frac = (0.50 - p0) / (p1 - p0)
-            return d0 + (d1 - d0) * frac
+            return d0 + (d1 - d0) * ((0.50 - p0) / (p1 - p0))
     return None
 
 
-def resolve_all_models(market):
-    """
-    Estimates the release of every single model by testing discrete daily markets,
-    cumulative strike curves, and liquidity rules.
-    """
+def _market_target(model, by_label, now):
+    """Discrete daily market first, then the cumulative curve. None means fall back to the registry date."""
+    ev = by_label.get(model.get("poly_discrete") or "")
+    if ev:
+        t = parse_discrete_date_market(ev["options"], now)
+        if t and t > now:
+            return t
+    ev = by_label.get(model.get("poly_cumulative") or "")
+    if ev:
+        t = parse_cumulative_market(ev["options"], now)
+        if t and t > now:
+            return t
+    return None
+
+
+def resolve_all_models(market, now):
     by_label = {e["label"]: e for e in market}
     out = []
-
-    for m in MODELS:
-        m = dict(m)
-
-        # 1. Enforce cadence lock for Flash-Lite (rejects illiquid $56 order book)
-        if m.get("id") == "gemini_flash_lite_next":
-            m["source"] = "cadence"
-            out.append(m)
-            continue
-
-        # 2. Check Discrete Daily Market First (e.g. Sonnet Sep 28/29, Gemini Pro Oct 16)
-        discrete_target = None
-        if m.get("poly_discrete"):
-            ev_d = by_label.get(m["poly_discrete"])
-            if ev_d:
-                discrete_target = parse_discrete_date_market(ev_d["options"], min_volume=1000)
-
-        if discrete_target and discrete_target > now_utc():
-            m["target"] = discrete_target
-            m["source"] = "market"
-            out.append(m)
-            continue
-
-        # 3. Check Cumulative 'Released By' Market
-        cumulative_target = None
-        if m.get("poly_cumulative"):
-            ev_c = by_label.get(m["poly_cumulative"])
-            if ev_c:
-                cumulative_target = parse_cumulative_market(ev_c["options"], min_volume=1500)
-
-        if cumulative_target and cumulative_target > now_utc():
-            m["target"] = cumulative_target
-            m["source"] = "market"
-            out.append(m)
-            continue
-
-        # 4. Fallback to Calibrated Pipeline Date
+    for base in MODELS:
+        m = dict(base)
         out.append(m)
+        if m["id"] in ILLIQUID_IDS:
+            m["source"] = "cadence"
+            continue
+        target = _market_target(m, by_label, now)
+        if target:
+            m["target"], m["source"] = target, "market"
 
-    # 5. Enforce Anthropic Pipeline Order: Haiku 5.5 follows Sonnet 5.5
-    sonnet_t = next((m["target"] for m in out if m.get("id") == "claude_sonnet_55"), None)
-    for m in out:
-        if m.get("id") == "claude_haiku_55" and sonnet_t:
-            if m["target"] <= sonnet_t:
-                m["target"] = datetime(2026, 10, 8, 16, 0, tzinfo=timezone.utc)
+    # Pipeline order: Haiku 5.5 follows Sonnet 5.5.
+    sonnet_t = next((m["target"] for m in out if m["id"] == "claude_sonnet_55"), None)
+    if sonnet_t:
+        for m in out:
+            if m["id"] == "claude_haiku_55" and m["target"] <= sonnet_t:
+                m["target"] = sonnet_t + timedelta(days=HAIKU_LAG_DAYS)
                 m["source"] = "manual"
-
     return out
 
 
 def options_df(options, top=None):
+    cols = ["Option", "Implied %", "Volume (USD)"]
+    if not options:
+        return pd.DataFrame(columns=cols)
     df = pd.DataFrame(options).rename(columns={
-        "option": "Option", 
-        "implied_prob": "Implied %",
-        "volume": "Volume (USD)"
-    })[["Option", "Implied %", "Volume (USD)"]]
+        "option": "Option", "implied_prob": "Implied %", "volume": "Volume (USD)",
+    })[cols]
     df["Implied %"] = (df["Implied %"] * 100).round(1)
     df = df.sort_values("Implied %", ascending=False)
     return df.head(top) if top else df
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def load_summary(payload):
+def show_market_table(by_label, label, title, top=8):
+    st.markdown(f"**{title}**")
+    ev = by_label.get(label)
+    if ev and ev["options"]:
+        st.dataframe(options_df(ev["options"], top), hide_index=True)
+    else:
+        st.caption("Feed unavailable.")
+
+
+# ---------------------------------------------------------------- Gemini brief
+
+
+def build_summary_payload(events):
+    return json.dumps(
+        [{"market": e["label"], "top": options_df(e["options"], 6).to_dict("records")} for e in events],
+        default=str,
+    )
+
+
+def _generation_config(model_name):
+    cfg = types.GenerateContentConfig()
+    if "flash" in model_name and "lite" not in model_name:
+        try:
+            cfg.thinking_config = types.ThinkingConfig(thinking_level="medium")
+        except Exception:  # older SDKs do not know thinking_level
+            pass
+    return cfg
+
+
+@st.cache_data(ttl=SUMMARY_TTL, show_spinner=False)
+def generate_summary(_payload, today_label):
+    """Try each candidate model in turn. `_payload` is underscore-prefixed so it is NOT part of the
+    cache key: order books wiggle every refresh, and keying on them would re-bill Gemini every 10
+    minutes instead of hourly. Raises on failure, so failures are never cached."""
     key = get_api_key()
-    if not key or genai is None:
-        return None, "Gemini offline (API key omitted)"
-    client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=45000))
     prompt = (
-        "Current Date: 28 September 2026. User is a Hungarian index investor aiming for FIRE via VUAA compounding and LEV. "
+        f"Current Date: {today_label}. User is a Hungarian index investor aiming for FIRE via VUAA compounding and LEV. "
         "Review these live prediction-market order books. "
         "Provide 4 concise sentences analyzing model release density, potential slippage, and capital compounding velocity. "
-        "Use hard numbers only, note thin volume, no conversational preamble.\n" + payload
+        "Use hard numbers only, note thin volume, no conversational preamble.\n" + _payload
     )
-    for name, timeout in CANDIDATES:
-        ex = ThreadPoolExecutor(max_workers=1)
+    errors = []
+    for name, timeout_s in CANDIDATES:
         try:
-            cfg = types.GenerateContentConfig()
-            if "flash" in name and "lite" not in name:
-                try:
-                    cfg.thinking_config = types.ThinkingConfig(thinking_level="medium")
-                except Exception:
-                    pass
-            resp = ex.submit(lambda n=name: client.models.generate_content(
-                model=n, contents=prompt, config=cfg
-            )).result(timeout=timeout)
+            client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=int(timeout_s * 1000)))
+            resp = client.models.generate_content(model=name, contents=prompt, config=_generation_config(name))
             if resp and resp.text:
                 return resp.text.strip(), name
-        except Exception:
-            pass
-        finally:
-            ex.shutdown(wait=False)
-    return None, "All candidate models timed out"
+            errors.append(f"{name}: empty response")
+        except Exception as exc:
+            errors.append(f"{name}: {type(exc).__name__}")
+    raise RuntimeError("all candidates failed (" + "; ".join(errors) + ")")
+
+
+def load_summary(payload, today_label):
+    if genai is None:
+        return None, "google-genai not installed"
+    if not get_api_key():
+        return None, "Gemini offline (API key omitted)"
+    try:
+        return generate_summary(payload, today_label)
+    except RuntimeError as exc:
+        return None, str(exc)
+
+
+# ---------------------------------------------------------------- Model helpers
+
+
+def months_to_target(pv, pmt, annual_rate_pct, fv, max_months=1200):
+    """Months until pv, compounding monthly with contribution pmt, reaches fv.
+    Returns None when the target is unreachable or more than `max_months` away."""
+    if pv >= fv:
+        return 0
+    if annual_rate_pct <= 0:
+        if pmt <= 0:
+            return None
+        n = math.ceil((fv - pv) / pmt)
+    else:
+        r = (1 + annual_rate_pct / 100.0) ** (1.0 / 12.0) - 1.0
+        numerator, denominator = fv * r + pmt, pv * r + pmt
+        if numerator <= 0 or denominator <= 0:
+            return None
+        n = math.ceil(math.log(numerator / denominator) / math.log1p(r))
+    return n if n <= max_months else None
+
+
+def fmt_months(n):
+    return "not reachable" if n is None else f"{n // 12}y {n % 12}m"
+
+
+def build_density_series(peak, start_d, num_days, spread=2.8, weight=90.0):
+    peak_idx = (peak.date() - start_d).days
+    raw = []
+    for i in range(num_days):
+        day = start_d + timedelta(days=i)
+        bell = math.exp(-0.5 * ((i - peak_idx) / max(1.5, spread)) ** 2)
+        raw.append(bell * WEEKDAY_RELEASE_WEIGHT[day.weekday()])
+    total = sum(raw) or 1.0
+    return [round(x / total * weight, 2) for x in raw]
 
 
 # ---------------------------------------------------------------- App Execution
 
-market = load_market()
-models = resolve_all_models(market)
+NOW = now_utc()  # one clock reading per run, so every countdown on the page agrees
+
+try:
+    market = load_market()
+    market_down = False
+except RuntimeError:
+    market, market_down = [], True
+by_label = {e["label"]: e for e in market}
+models = resolve_all_models(market, NOW)
+upcoming = sorted((m for m in models if m["target"] > NOW), key=lambda m: m["target"])
+labeled = [e for e in market if e["entity"] in ("Google", "OpenAI", "Anthropic", "SpaceXAI", "Crown") and e["options"]]
 
 st.title("⏱️ Frontier Board")
 st.caption("Precision intelligence dashboard tracking frontier model releases, FIRE velocity, and Longevity Escape Velocity. Times shown in UTC and Budapest time.")
+if market_down:
+    st.warning("Polymarket is unreachable right now. Showing calibrated pipeline dates only.")
 
-# Executive Top HUD
-upcoming = sorted((m for m in models if m["target"] > now_utc()), key=lambda m: m["target"])
 h1, h2, h3, h4 = st.columns(4)
-next_model_text = upcoming[0]["name"] if upcoming else "None"
-next_days_text = f"{countdown_parts(upcoming[0]['target'])[0]} days" if upcoming else None
-
-h1.metric("Next on Board", next_model_text, next_days_text, delta_color="off")
-h2.metric("Clocks Tracked", len(models), "14 Models Active")
+h1.metric("Next on Board", upcoming[0]["name"] if upcoming else "None",
+          eta_text(upcoming[0]["target"], NOW) if upcoming else None, delta_color="off")
+h2.metric("Clocks Tracked", len(models), f"{len(upcoming)} Active")
 h3.metric("Live Market Feeds", f"{len(market)}/{len(POLYMARKET_EVENTS)}", "Polymarket Gamma")
-h4.metric("Market-Calibrated", sum(m["source"] == "market" for m in models), f"{sum(m['source'] != 'market' for m in models)} Pipeline Backstops")
+n_market = sum(m["source"] == "market" for m in models)
+h4.metric("Market-Calibrated", n_market, f"{len(models) - n_market} Pipeline Backstops")
 
 tab_board, tab_crown, tab_curves, tab_personal, tab_geo, tab_alan, tab_audit = st.tabs([
-    "⏱️ Release Clocks", 
+    "⏱️ Release Clocks",
     "👑 AI Frontier Crown & Benchmarks",
-    "📈 Probability Waves", 
+    "📈 Probability Waves",
     "🧬 FIRE & LEV Horizon",
-    "🏛️ Geopolitics", 
-    "🧠 Milestones & Math", 
-    "🔍 Order Book Audit"
+    "🏛️ Geopolitics",
+    "🧠 Milestones & Math",
+    "🔍 Order Book Audit",
 ])
 
-# ---- Tab 1: Grok-Style Release Board
+# ---- Tab 1: Release Board
 with tab_board:
     f1, f2 = st.columns([3, 2])
-    f1.radio(
-        "Lab", 
-        ["All", "Anthropic", "Google DeepMind", "OpenAI", "SpaceXAI"],
-        horizontal=True, 
-        label_visibility="collapsed", 
-        key="lab_filter"
-    )
-    f2.toggle("Near-term only (Confirmed & Likely)", key="near_only")
+    lab_choice = f1.radio("Lab", ["All", *sorted({m["lab"] for m in MODELS})],
+                          horizontal=True, label_visibility="collapsed")
+    near_only = f2.toggle("Near-term only (Confirmed & Likely)")
 
-    pool = sorted((m for m in models if m["target"] > now_utc()), key=lambda m: m["target"])
-    released = [m["name"] for m in models if m["target"] <= now_utc()]
+    released = [m["name"] for m in models if m["target"] <= NOW]
 
-    if not pool:
+    if not upcoming:
         st.info("All tracked clocks have resolved past their target dates.")
     else:
-        nxt = pool[0]
+        nxt = upcoming[0]
         render_html(f"""
         <div class="hero-container">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div class="hero-label">NEXT ON THE BOARD · {len(pool)} CLOCKS RUNNING</div>
+                <div class="hero-label">NEXT ON THE BOARD · {len(upcoming)} CLOCKS RUNNING</div>
                 <div>{badges(nxt)}</div>
             </div>
             <div class="lab-tag" style="margin-top:0.4rem;">{nxt['code']} {html.escape(nxt['lab'])}</div>
             <div class="hero-title">{html.escape(nxt['name'])}</div>
-            {clock_html(nxt['target'], large=True)}
+            {clock_html(nxt['target'], NOW, large=True)}
             <div style="color:#cbd5e1; font-weight:700; font-size:0.95rem;">
-                Target: {nxt['target'].strftime('%d %b %Y %H:%M UTC')} ({nxt['target'].astimezone(zoneinfo.ZoneInfo('Europe/Budapest')).strftime('%H:%M')} Budapest)
+                Target: {nxt['target'].strftime('%d %b %Y %H:%M UTC')} ({to_budapest(nxt['target']).strftime('%H:%M')} Budapest)
             </div>
             <div style="color:#94a3b8; font-size:0.85rem; margin-top:0.35rem; line-height:1.4;">
                 {html.escape(nxt['notes'])}
@@ -716,33 +844,15 @@ with tab_board:
         </div>
         """)
 
-        shown = pool
-        if st.session_state.get("lab_filter", "All") != "All":
-            shown = [m for m in shown if m["lab"] == st.session_state["lab_filter"]]
-        if st.session_state.get("near_only"):
-            shown = [m for m in shown if m["status"] in ("CONFIRMED", "LIKELY")]
-
+        shown = [m for m in upcoming
+                 if (lab_choice == "All" or m["lab"] == lab_choice)
+                 and (not near_only or m["status"] in ("CONFIRMED", "LIKELY"))]
+        if not shown:
+            st.info("No clocks match these filters.")
         cols = st.columns(2)
         for i, m in enumerate(shown):
             with cols[i % 2]:
-                render_html(f"""
-                <div class="model-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="lab-tag">{m['code']} {html.escape(m['lab'])}</span>
-                        <span>{badges(m)}</span>
-                    </div>
-                    <div style="font-size:1.25rem; font-weight:800; color:#f8fafc; margin:0.35rem 0;">
-                        {html.escape(m['name'])}
-                    </div>
-                    {clock_html(m['target'])}
-                    <div style="color:#94a3b8; font-size:0.85rem; font-weight:600;">
-                        Target: {m['target'].strftime('%d %b %Y %H:%M UTC')}
-                    </div>
-                    <div style="color:#64748b; font-size:0.8rem; margin-top:0.35rem; line-height:1.35;">
-                        {html.escape(m['notes'])}
-                    </div>
-                </div>
-                """)
+                render_html(model_card_html(m, NOW))
 
         if released:
             st.caption("Passed target window: " + ", ".join(released))
@@ -753,139 +863,92 @@ with tab_crown:
     st.subheader("👑 Frontier AI Crown & Superiority Stakes")
     st.caption("Live prediction market odds on model superiority, Chatbot Arena milestones, and Humanity's Last Exam (HLE).")
 
-    by_lbl = {e["label"]: e for e in market}
-
-    # Section 1: Crown Races
-    cr_col1, cr_col2, cr_col3 = st.columns(3)
-    with cr_col1:
-        ev = by_lbl.get("Best AI Model End of October")
-        st.markdown("**Best Model: End of October**")
-        if ev and ev["options"]:
-            st.dataframe(options_df(ev["options"], 4), hide_index=True)
-    with cr_col2:
-        ev = by_lbl.get("Best AI Model End of November")
-        st.markdown("**Best Model: End of November**")
-        if ev and ev["options"]:
-            st.dataframe(options_df(ev["options"], 4), hide_index=True)
-    with cr_col3:
-        ev = by_lbl.get("Best AI Model End of 2026")
-        st.markdown("**Best Model: End of 2026**")
-        if ev and ev["options"]:
-            st.dataframe(options_df(ev["options"], 4), hide_index=True)
+    crown_tables = [
+        ("Best AI Model End of October", "Best Model: End of October"),
+        ("Best AI Model End of November", "Best Model: End of November"),
+        ("Best AI Model End of 2026", "Best Model: End of 2026"),
+    ]
+    for col, (label, title) in zip(st.columns(3), crown_tables):
+        with col:
+            show_market_table(by_label, label, title, top=4)
 
     st.divider()
 
-    # Section 2: Chatbot Arena & HLE Benchmarks
     b_col1, b_col2 = st.columns(2)
     with b_col1:
         st.subheader("🥊 Chatbot Arena Races")
-        ev_1550 = by_lbl.get("First to Hit 1550 on Arena")
-        if ev_1550 and ev_1550["options"]:
-            st.markdown("**First AI to Hit 1550 on Arena in 2026**")
-            st.dataframe(options_df(ev_1550["options"], 5), hide_index=True)
-
-        ev_sonnet_arena = by_lbl.get("Sonnet Text Arena Debut")
-        if ev_sonnet_arena and ev_sonnet_arena["options"]:
-            st.markdown("**Next Sonnet Model: Text Arena Debut Score**")
-            st.dataframe(options_df(ev_sonnet_arena["options"], 4), hide_index=True)
-
-        ev_gemini_arena = by_lbl.get("Gemini Pro Arena Debut Score")
-        if ev_gemini_arena and ev_gemini_arena["options"]:
-            st.markdown("**Next Gemini Pro: Arena Debut Score**")
-            st.dataframe(options_df(ev_gemini_arena["options"], 4), hide_index=True)
+        show_market_table(by_label, "First to Hit 1550 on Arena", "First AI to Hit 1550 on Arena in 2026", top=5)
+        show_market_table(by_label, "Sonnet Text Arena Debut", "Next Sonnet Model: Text Arena Debut Score", top=4)
+        show_market_table(by_label, "Gemini Pro Arena Debut Score", "Next Gemini Pro: Arena Debut Score", top=4)
 
     with b_col2:
         st.subheader("🎓 Humanity's Last Exam (HLE) Stakes")
-        ev_gemini_hle = by_lbl.get("Highest Gemini HLE Score 2026")
-        if ev_gemini_hle and ev_gemini_hle["options"]:
-            st.markdown("**Highest Google Gemini Score on HLE in 2026**")
-            st.dataframe(options_df(ev_gemini_hle["options"], 4), hide_index=True)
-
-        ev_claude_hle = by_lbl.get("Highest Claude HLE Score 2026")
-        if ev_claude_hle and ev_claude_hle["options"]:
-            st.markdown("**Highest Claude Score on HLE in 2026**")
-            st.dataframe(options_df(ev_claude_hle["options"], 4), hide_index=True)
-
-        ev_openai_hle = by_lbl.get("Highest OpenAI HLE Score 2026")
-        if ev_openai_hle and ev_openai_hle["options"]:
-            st.markdown("**Highest OpenAI Score on HLE in 2026**")
-            st.dataframe(options_df(ev_openai_hle["options"], 4), hide_index=True)
+        show_market_table(by_label, "Highest Gemini HLE Score 2026", "Highest Google Gemini Score on HLE in 2026", top=4)
+        show_market_table(by_label, "Highest Claude HLE Score 2026", "Highest Claude Score on HLE in 2026", top=4)
+        show_market_table(by_label, "Highest OpenAI HLE Score 2026", "Highest OpenAI Score on HLE in 2026", top=4)
 
 
 # ---- Tab 3: Probability Waves & Live Distributions
 with tab_curves:
-    st.subheader("Comparative Probability Density Functions")
-    st.caption("Normalized daily mass distribution across the Q4 2026 intelligence compression window.")
+    st.subheader("Comparative Release Density")
+    st.caption(
+        f"Stylized view, not raw market data: a bell curve around each model's target date over the next "
+        f"{PLOT_HORIZON_DAYS} days, weighted toward Tue to Thu release days."
+    )
 
-    start_d = date(2026, 9, 23)
-    end_d = date(2026, 11, 5)
-    num_days = (end_d - start_d).days + 1
-    dates = [(start_d + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(num_days)]
+    start_d = NOW.date()
+    num_days = PLOT_HORIZON_DAYS + 1
+    end_d = start_d + timedelta(days=PLOT_HORIZON_DAYS)
+    dates = [(start_d + timedelta(days=i)).isoformat() for i in range(num_days)]
 
-    def build_density_series(peak_date_obj, spread, weight):
-        res = []
-        peak_idx = (peak_date_obj.date() - start_d).days
-        for i in range(num_days):
-            curr_d = start_d + timedelta(days=i)
-            diff = i - peak_idx
-            w = math.exp(-0.5 * ((diff / max(1.5, spread)) ** 2))
-            w_factor = 1.0 if curr_d.weekday() in [1, 2, 3] else (0.75 if curr_d.weekday() == 0 else (0.6 if curr_d.weekday() == 4 else 0.15))
-            res.append(w * w_factor)
-        tot = sum(res)
-        return [round((x / tot) * weight, 2) for x in res]
-
-    df_waves = pd.DataFrame({"date": dates})
-    key_models = [m for m in models if m["target"].date() <= end_d][:5]
-    colors = ["#f59e0b", "#fb923c", "#34d399", "#c084fc", "#06b6d4"]
+    in_window = [m for m in upcoming if m["target"].date() <= end_d]
+    chosen = st.multiselect(
+        "Models to plot",
+        [m["name"] for m in in_window],
+        default=[m["name"] for m in in_window[:5]],
+    )
 
     fig_w = go.Figure()
-    for m, c in zip(key_models, colors):
-        series = build_density_series(m["target"], 2.8, 90.0)
+    for i, m in enumerate(m for m in in_window if m["name"] in chosen):
         fig_w.add_trace(go.Scatter(
-            x=df_waves["date"], y=series, mode="lines+markers", 
-            name=m["name"], line=dict(color=c, width=2.5)
+            x=dates, y=build_density_series(m["target"], start_d, num_days),
+            mode="lines+markers", name=m["name"],
+            line=dict(color=PLOT_COLORS[i % len(PLOT_COLORS)], width=2.5),
         ))
-
     fig_w.update_layout(
         template="plotly_dark",
         xaxis=dict(title="Calendar Date", fixedrange=True),
-        yaxis=dict(title="Implied Daily Density (%)", fixedrange=True, rangemode="tozero"),
+        yaxis=dict(title="Relative Daily Density (%)", fixedrange=True, rangemode="tozero"),
         hovermode="x unified",
         margin=dict(l=20, r=20, t=20, b=20),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
     st.plotly_chart(fig_w, config={"displayModeBar": False, "scrollZoom": False})
 
     st.divider()
     st.subheader("Live Polymarket Order Book Distributions")
-    labeled = [e for e in market if e["entity"] in ("Google", "OpenAI", "Anthropic", "SpaceXAI", "Crown") and e["options"]]
     if labeled:
-        pick = st.selectbox("Market Event", [f"{e['entity']} · {e['label']}" for e in labeled])
-        ev = labeled[[f"{e['entity']} · {e['label']}" for e in labeled].index(pick)]
+        choices = {f"{e['entity']} · {e['label']}": e for e in labeled}
+        ev = choices[st.selectbox("Market Event", list(choices))]
         fig_bar = go.Figure(go.Bar(
             x=[o["option"] for o in ev["options"]],
             y=[round(o["implied_prob"] * 100, 1) for o in ev["options"]],
-            marker_color="#3b82f6"
+            marker_color="#3b82f6",
         ))
         fig_bar.update_layout(
             template="plotly_dark",
             yaxis_title="Implied Probability (%)",
             xaxis=dict(fixedrange=True),
             yaxis=dict(fixedrange=True, rangemode="tozero"),
-            margin=dict(l=20, r=20, t=20, b=20)
+            margin=dict(l=20, r=20, t=20, b=20),
         )
         st.plotly_chart(fig_bar, config={"displayModeBar": False, "scrollZoom": False})
-        st.caption(f"Total Market Liquidity: ${sum(o['volume'] for o in ev['options']):,.0f}")
+        st.caption(f"Total Traded Volume: ${sum(o['volume'] for o in ev['options']):,.0f}")
     else:
         st.warning("No market feeds loaded.")
 
-    payload = json.dumps([
-        {"market": e["label"], "top": options_df(e["options"], 6).to_dict("records")}
-        for e in labeled
-    ], default=str)
-    summary, engine = load_summary(payload)
-    st.markdown("**Executive Market Intelligence**" + (f" · {engine}" if summary else ""))
-    st.write(summary or f"Unavailable ({engine}).")
+    # Filled at the very end of the script, so a slow Gemini call never blocks the other tabs.
+    brief_slot = st.container()
 
 
 # ---- Tab 4: Personal FIRE & Longevity Escape Velocity
@@ -899,45 +962,31 @@ with tab_personal:
     ret = c3.slider("Real Return (% per year)", 0.0, 12.0, 6.5, 0.5)
     target = c4.number_input("FIRE Target Milestone (HUF)", 1_000_000, value=60_000_000, step=5_000_000)
 
-    def months_to_fire(pv, pmt, rate_annual, fv):
-        if pv >= fv:
-            return 0
-        if rate_annual <= 0:
-            return math.ceil((fv - pv) / pmt) if pmt > 0 else 999
-        r = (1 + rate_annual / 100.0) ** (1.0 / 12.0) - 1.0
-        numerator = fv * r + pmt
-        denominator = pv * r + pmt
-        if denominator <= 0 or numerator <= 0:
-            return 999
-        return math.ceil(math.log(numerator / denominator) / math.log(1.0 + r))
-
-    m_base = months_to_fire(start, monthly, ret, target)
-    fire_date = now_utc() + timedelta(days=int(m_base * 30.4375))
-
-    render_html(f"""
-    <div class="hero-container" style="border-color:#10b981;">
-        <div class="hero-label" style="color:#34d399;">PERPETUAL FINANCIAL INDEPENDENCE (FIRE) COUNTDOWN</div>
-        <div class="hero-title">{target:,.0f} HUF Target Milestone</div>
-        {clock_html(fire_date, large=True)}
-        <div style="color:#cbd5e1; font-weight:700;">
-            Projected Arrival: {fire_date.strftime('%B %Y')} ({m_base // 12} years, {m_base % 12} months)
+    m_base = months_to_target(start, monthly, ret, target)
+    if m_base is None:
+        st.warning("The target is not reachable within 100 years at these inputs.")
+    else:
+        fire_date = NOW + timedelta(days=int(m_base * 30.4375))
+        render_html(f"""
+        <div class="hero-container" style="border-color:#10b981;">
+            <div class="hero-label" style="color:#34d399;">PERPETUAL FINANCIAL INDEPENDENCE (FIRE) COUNTDOWN</div>
+            <div class="hero-title">{target:,.0f} HUF Target Milestone</div>
+            {clock_html(fire_date, NOW, large=True)}
+            <div style="color:#cbd5e1; font-weight:700;">
+                Projected Arrival: {fire_date.strftime('%B %Y')} ({m_base // 12} years, {m_base % 12} months)
+            </div>
         </div>
-    </div>
-    """)
+        """)
 
-    sens_cols = st.columns(3)
-    for col, rate in zip(sens_cols, (max(ret - 2.0, 0.0), ret, ret + 2.0)):
-        n = months_to_fire(start, monthly, rate, target)
-        col.metric(f"At {rate:.1f}% Real Return", f"{n // 12}y {n % 12}m", f"Target: {n} months")
+    for col, rate in zip(st.columns(3), (max(ret - 2.0, 0.0), ret, ret + 2.0)):
+        n = months_to_target(start, monthly, rate, target)
+        col.metric(f"At {rate:.1f}% Real Return", fmt_months(n), f"Target: {n} months" if n is not None else None)
 
     st.divider()
     st.subheader("Longevity Escape Velocity (LEV) & Biological Horizon")
-    st.caption("Personalized timeline mapping status-quo biological senescence against AI-accelerated LEV crossover.")
+    st.caption("Personalized timeline mapping status-quo biological senescence against AI-accelerated LEV crossover. Scenario assumptions, not forecasts.")
 
-    birth_date = datetime(2003, 12, 1, tzinfo=timezone.utc)
-    status_quo_death = birth_date + timedelta(days=int(75.0 * 365.25))
-    lev_compressed = datetime(2036, 7, 1, tzinfo=timezone.utc)
-    extended_lifespan = datetime(2145, 12, 1, tzinfo=timezone.utc)
+    status_quo_death = BIRTH_DATE + timedelta(days=int(LIFE_EXPECTANCY_YEARS * 365.25))
 
     l1, l2, l3 = st.columns(3)
     with l1:
@@ -945,8 +994,8 @@ with tab_personal:
         <div class="model-card">
             <div class="lab-tag">Crossover Point</div>
             <div style="font-size:1.15rem; font-weight:800; color:#f8fafc; margin:0.35rem 0;">Personal LEV Arrival</div>
-            {clock_html(lev_compressed)}
-            <div style="color:#38bdf8; font-size:0.8rem; font-weight:700;">Target: July 2036 (Age 32.6)</div>
+            {clock_html(LEV_ARRIVAL, NOW)}
+            <div style="color:#38bdf8; font-size:0.8rem; font-weight:700;">Target: {LEV_ARRIVAL:%B %Y} (Age {age_at(LEV_ARRIVAL):.1f})</div>
             <div style="color:#64748b; font-size:0.75rem; margin-top:0.25rem;">Compressed by 15 months via lab capex wave.</div>
         </div>
         """)
@@ -955,8 +1004,8 @@ with tab_personal:
         <div class="model-card">
             <div class="lab-tag">Actuarial Senescence</div>
             <div style="font-size:1.15rem; font-weight:800; color:#f8fafc; margin:0.35rem 0;">Status-Quo Mortality</div>
-            {clock_html(status_quo_death)}
-            <div style="color:#94a3b8; font-size:0.8rem; font-weight:700;">Target: Dec 2078 (Age 75.0)</div>
+            {clock_html(status_quo_death, NOW)}
+            <div style="color:#94a3b8; font-size:0.8rem; font-weight:700;">Target: {status_quo_death:%b %Y} (Age {age_at(status_quo_death):.1f})</div>
             <div style="color:#64748b; font-size:0.75rem; margin-top:0.25rem;">Hungarian actuarial baseline without rejuvenation.</div>
         </div>
         """)
@@ -965,8 +1014,8 @@ with tab_personal:
         <div class="model-card">
             <div class="lab-tag">Post-LEV Trajectory</div>
             <div style="font-size:1.15rem; font-weight:800; color:#f8fafc; margin:0.35rem 0;">Extended Healthspan</div>
-            {clock_html(extended_lifespan)}
-            <div style="color:#a855f7; font-size:0.8rem; font-weight:700;">Horizon: ~2145+ (Age 140+)</div>
+            {clock_html(EXTENDED_HORIZON, NOW)}
+            <div style="color:#a855f7; font-size:0.8rem; font-weight:700;">Horizon: ~{EXTENDED_HORIZON.year}+ (Age 140+)</div>
             <div style="color:#64748b; font-size:0.75rem; margin-top:0.25rem;">Rejuvenation pace exceeding 1.0 biological year per chronological year.</div>
         </div>
         """)
@@ -997,8 +1046,7 @@ with tab_geo:
 
     st.divider()
     st.subheader("Live Prediction Market Feeds")
-    geo = [e for e in market if e["entity"] == "Geopolitics" and e["options"]]
-    for ev in geo:
+    for ev in (e for e in market if e["entity"] == "Geopolitics" and e["options"]):
         st.markdown(f"**{ev['label']}**")
         st.dataframe(options_df(ev["options"], 8), hide_index=True)
 
@@ -1010,14 +1058,14 @@ with tab_alan:
 
     df_alan = pd.DataFrame(ALAN, columns=["Milestone", "Category", "Status", "Date"])
     counts = df_alan["Status"].value_counts()
-    
+
     a1, a2, a3, a4 = st.columns(4)
-    a1.metric("Alan's AGI Gauge", "99.0%", "Est. Completion: Q4 2026")
+    a1.metric("Alan's AGI Gauge", *ALAN_AGI_GAUGE)
     a2.metric("Achieved", int(counts.get(A, 0)), "Green Badges")
     a3.metric("In Progress", int(counts.get(P, 0)), "Active Research")
     a4.metric("Pending", int(counts.get(N, 0)), "Frontier Indicators")
 
-    with st.expander("Inspect All 50 ASI Indicators"):
+    with st.expander(f"Inspect All {len(df_alan)} ASI Indicators"):
         st.dataframe(df_alan, hide_index=True, height=400)
 
     st.divider()
@@ -1029,7 +1077,7 @@ with tab_alan:
         "solution_date": "Credible Solution Date",
         "prob": "Confidence (%)",
         "contender": "Leading Mechanism",
-        "impact": "Disciplinary Impact"
+        "impact": "Disciplinary Impact",
     })
     st.dataframe(df_math, hide_index=True)
 
@@ -1043,7 +1091,7 @@ with tab_alan:
 # ---- Tab 7: Live Epistemic & Order Book Audit
 with tab_audit:
     st.subheader("Raw Prediction Market Order Books")
-    missing = [lbl for _, _, lbl in POLYMARKET_EVENTS if lbl not in {e["label"] for e in market}]
+    missing = [lbl for _, _, lbl in POLYMARKET_EVENTS if lbl not in by_label]
     if missing:
         st.warning("Failed to harvest: " + ", ".join(missing))
     for ev in market:
@@ -1053,7 +1101,19 @@ with tab_audit:
                 st.table(pd.DataFrame(ev["options"]))
 
 st.divider()
-st.caption(f"Market cache: 10 min · Summary cache: 60 min · Budapest Calibration Time: {budapest_now().strftime('%Y-%m-%d %H:%M %Z')}")
+st.caption(
+    f"Market cache: {MARKET_TTL // 60} min · Summary cache: {SUMMARY_TTL // 60} min · "
+    f"Manual calibrations as of {MANUAL_AS_OF} · "
+    f"Budapest time: {to_budapest(NOW).strftime('%Y-%m-%d %H:%M %Z')}"
+)
 if st.button("Force Synchronized Market Recalculation"):
     st.cache_data.clear()
     st.rerun()
+
+# ---- Executive brief (rendered last, into the slot reserved in the Probability Waves tab)
+if labeled:
+    with brief_slot:
+        with st.spinner("Generating executive brief..."):
+            summary, engine = load_summary(build_summary_payload(labeled), NOW.strftime("%d %B %Y"))
+        st.markdown("**Executive Market Intelligence**" + (f" · {engine}" if summary else ""))
+        st.write(summary or f"Unavailable ({engine}).")
