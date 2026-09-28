@@ -294,20 +294,25 @@ def get_api_key():
     return os.environ.get("GEMINI_API_KEY")
 
 def call_gemini_worker(client, model_name, prompt):
+    config = None
     try:
         config = types.GenerateContentConfig(
             response_mime_type="application/json",
             thinking_config=types.ThinkingConfig(thinking_level="medium")
         )
     except Exception:
-        config = types.GenerateContentConfig(response_mime_type="application/json")
+        try:
+            config = types.GenerateContentConfig(
+                response_mime_type="application/json",
+                thinking_config={"thinking_level": "medium"}
+            )
+        except Exception:
+            config = types.GenerateContentConfig(response_mime_type="application/json")
         
-    http_opts = types.HttpOptions(timeout=65000)
     resp = client.models.generate_content(
         model=model_name,
         contents=prompt,
-        config=config,
-        http_options=http_opts
+        config=config
     )
     if resp and resp.text:
         return resp.text
@@ -316,23 +321,26 @@ def call_gemini_worker(client, model_name, prompt):
 def execute_gemini_guaranteed(client, prompt):
     candidate_specs = [
         ("gemini-3.8-flash", 60.0),
-        ("gemini-3.6-flash", 25.0),
-        ("gemini-3.5-flash-lite", 15.0)
+        ("gemini-3.6-flash", 30.0),
+        ("gemini-3.5-flash-lite", 20.0)
     ]
     
+    last_err_msg = None
     for m, timeout_val in candidate_specs:
         try:
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(call_gemini_worker, client, m, prompt)
                 result_text = future.result(timeout=timeout_val)
                 if result_text:
-                    return result_text, f"{m} (Medium Thinking · Google AI Studio)"
+                    return result_text, f"{m} (Medium Thinking · Google AI Studio)", None
         except TimeoutError:
+            last_err_msg = f"{m} timed out after {timeout_val}s"
             continue
-        except Exception:
+        except Exception as e:
+            last_err_msg = f"{m} exception: {str(e)}"
             continue
 
-    return None, "Calibrated Baseline Engine (Fast Failsafe)"
+    return None, "Calibrated Baseline Engine (Fast Failsafe)", last_err_msg
 
 def build_discrete_density(peak_date_str, spread_days, tail_pct, start_d, end_d):
     try:
@@ -386,9 +394,13 @@ def execute_pipeline(progress_bar, status_text):
 
     result = None
     active_model = "Calibrated Baseline Engine (Fast Failsafe)"
+    diagnostic_err = None
 
     if api_key:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=65000)
+        )
         prompt = f"""
         You are a headless quantitative engine.
         Current Date: Late September 2026.
@@ -456,13 +468,14 @@ def execute_pipeline(progress_bar, status_text):
           "synthesis": "The multi-lab release wave concentrates frontier reasoning in Q4 2026, pulling forward autonomous code generation and accelerating capital compounding inside tax-sheltered global equities."
         }}
         """
-        raw_text, detected_model = execute_gemini_guaranteed(client, prompt)
+        raw_text, detected_model, diagnostic_err = execute_gemini_guaranteed(client, prompt)
         if raw_text:
             try:
                 clean_text = raw_text.replace("```json", "").replace("```", "").strip()
                 result = json.loads(clean_text)
                 active_model = detected_model
-            except Exception:
+            except Exception as pe:
+                diagnostic_err = f"JSON parse error: {str(pe)}"
                 result = None
 
     if not result:
@@ -517,6 +530,7 @@ def execute_pipeline(progress_bar, status_text):
 
     result["polymarket_raw"] = poly_data if poly_data else []
     result["active_model"] = active_model
+    result["diagnostic_err"] = diagnostic_err
     result["refreshed_at_budapest"] = get_budapest_now().strftime("%Y-%m-%d %H:%M CEST")
 
     status_text.markdown("✨ **[5/5] Finalizing layout rendering...**")
@@ -1038,7 +1052,9 @@ with tab5:
                 st.table(pd.DataFrame(ev["options"]))
 
 st.divider()
-st.caption(f"Engine: {data.get('active_model', 'Google AI Studio')} · Automated Cache: 60 Minutes · Last Calibrated: {data.get('refreshed_at_budapest', 'Budapest Time')}")
+engine_display = data.get('active_model', 'Google AI Studio')
+diag_display = f" · Note: {data.get('diagnostic_err')}" if data.get('diagnostic_err') else ""
+st.caption(f"Engine: {engine_display}{diag_display} · Automated Cache: 60 Minutes · Last Calibrated: {data.get('refreshed_at_budapest', 'Budapest Time')}")
 if st.button("Force Synchronized Market Recalculation (Budapest Time)"):
     st.session_state.pop("macro_data", None)
     st.session_state.pop("macro_data_ts", None)
