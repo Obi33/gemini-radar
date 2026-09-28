@@ -48,12 +48,10 @@ try:
 except Exception:  # tzdata missing. Fixed +2h is only right in summer, so install tzdata.
     BUDAPEST = timezone(timedelta(hours=2))
 
-# Anthropic ships Haiku after Sonnet. If a market date puts Haiku first, push it this far behind.
-HAIKU_LAG_DAYS = 9
 # Order books too thin to trust: always use the calibrated cadence date.
 ILLIQUID_IDS = {"gemini_flash_lite_next"}
 
-# Personal / scenario assumptions. Move to st.secrets if this app or repo is ever public.
+# Personal / scenario assumptions.
 BIRTH_DATE = datetime(2003, 12, 1, tzinfo=timezone.utc)
 LIFE_EXPECTANCY_YEARS = 75.0
 LEV_ARRIVAL = datetime(2036, 7, 1, tzinfo=timezone.utc)
@@ -62,14 +60,12 @@ ALAN_AGI_GAUGE = ("99.0%", "Est. Completion: Q4 2026")
 
 # Probability-wave chart
 PLOT_HORIZON_DAYS = 38
-PLOT_COLORS = ["#f59e0b", "#fb923c", "#34d399", "#c084fc", "#06b6d4", "#f472b6", "#a3e635"]
+PLOT_COLORS = ["#fb923c", "#34d399", "#c084fc", "#06b6d4", "#38bdf8", "#f43f5e", "#f59e0b"]
 # Releases cluster Tue to Thu, taper Mon/Fri, and rarely land on weekends.
 WEEKDAY_RELEASE_WEIGHT = {0: 0.75, 1: 1.0, 2: 1.0, 3: 1.0, 4: 0.6, 5: 0.15, 6: 0.15}
 
 
 def render_html(s):
-    """Render an HTML snippet. Lines are stripped so markdown never treats indentation as a code
-    block, and blank lines are dropped because a blank line ends a markdown HTML block early."""
     cleaned = "\n".join(line.strip() for line in s.splitlines() if line.strip())
     st.markdown(cleaned, unsafe_allow_html=True)
 
@@ -131,6 +127,16 @@ render_html("""
     padding: 1.15rem;
     margin-bottom: 0.85rem;
 }
+.shipped-banner {
+    background: #064e3b22;
+    border: 1px solid #059669;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
 .badge {
     font-size: 0.65rem;
     font-weight: 800;
@@ -146,6 +152,7 @@ render_html("""
 .badge-market { background: #134e4a; color: #5eead4; border: 1px solid #0d9488; }
 .badge-cadence { background: #1e1b4b; color: #a5b4fc; border: 1px solid #4338ca; }
 .badge-manual { background: #1e293b; color: #94a3b8; border: 1px solid #475569; }
+.badge-shipped { background: #065f46; color: #6ee7b7; border: 1px solid #10b981; }
 .lab-tag {
     font-size: 0.68rem;
     font-weight: 800;
@@ -180,26 +187,33 @@ def M(id_str, name, lab, code, dt, status, notes, poly_cumulative=None, poly_dis
         "notes": notes,
         "source": "manual",
         "personal_impact": personal_impact,
-        "target": datetime(*dt, 16, 0, tzinfo=timezone.utc)
+        "target": datetime(*dt, 16, 0, tzinfo=timezone.utc),
     }
 
 
-# Comprehensive Model Registry calibrated across all monitored Polymarket events
-MODELS = [
-    M("claude_sonnet_55", "Claude Sonnet 5.5", "Anthropic", "ANTH", (2026, 9, 29), "CONFIRMED",
-      "Market prices Sep 28 (63%) and Sep 29 (31%) on $11K+ volume, with 84% cumulative probability by Sep 29. Imminent drop.",
-      poly_cumulative="Next Claude Sonnet Cumulative", poly_discrete="Next Claude Sonnet Daily Date", personal_impact=62),
+# Recently Shipped Ledger
+SHIPPED_MODELS = [
+    {
+        "name": "Claude Sonnet 5.5",
+        "lab": "Anthropic",
+        "code": "ANTH",
+        "shipped_date": "28 Sep 2026",
+        "notes": "Officially launched on 28 Sep 2026. Flagship reasoning, coding, and autonomous tool use deployment.",
+    }
+]
 
+# Active Upcoming Models (Sonnet 5.5 graduated out of countdowns)
+MODELS = [
     M("claude_haiku_55", "Claude Haiku 5.5", "Anthropic", "ANTH", (2026, 10, 8), "CONFIRMED",
-      "78% by Oct 15, 95% by Oct 31 ($11.7K vol). Anthropic confirmed Haiku directly follows Sonnet 5.5 in coming weeks.",
+      "78% by Oct 15, 95% by Oct 31 ($11.7K vol). Anthropic confirmed Haiku directly follows Sonnet 5.5.",
       poly_cumulative="Next Claude Haiku", personal_impact=18),
 
     M("gemini_flash_39", "Gemini Flash 3.9+", "Google DeepMind", "GOOG", (2026, 10, 13), "LIKELY",
-      "51% by Oct 15, 94% by Nov 30. High-efficiency test run directly leading into the Gemini 4 flagship.",
+      "51% by Oct 15, 94% by Nov 30. High-efficiency multimodal ramp preceding the Gemini 4 flagship.",
       poly_cumulative="Gemini Flash 3.9+", personal_impact=24),
 
     M("claude_fable_52", "Claude Fable 5.2", "Anthropic", "ANTH", (2026, 10, 17), "SPECULATIVE",
-      "55% by Oct 31, 92% by Dec 31 ($31K vol). Specialized structural reasoning checkpoint.",
+      "55% by Oct 31, 92% by Dec 31 ($31K vol). Specialized structural and creative reasoning checkpoint.",
       poly_cumulative="Next Fable 5.2+", personal_impact=26),
 
     M("gpt_astra_61", "GPT-Astra 6.1", "OpenAI", "OAI", (2026, 10, 18), "SPECULATIVE",
@@ -211,7 +225,7 @@ MODELS = [
       poly_cumulative="Grok 4.8+", personal_impact=35),
 
     M("gemini_4", "Gemini 4 / Pro Flagship", "Google DeepMind", "GOOG", (2026, 10, 21), "CONFIRMED",
-      "True market median sits at Oct 20-22 ($1.4M vol; 77% by Oct 31). Oct 31 is the contract expiration date, not the mode.",
+      "True market median sits at Oct 20-22 ($1.4M vol; 77% by Oct 31). Oct 31 is the contract expiration date, not the peak mode.",
       poly_cumulative="Gemini Pro Cumulative", poly_discrete="Next Gemini Pro Daily Date", personal_impact=58),
 
     M("gemini_flash_lite_next", "Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 21), "LIKELY",
@@ -243,7 +257,6 @@ MODELS = [
       poly_cumulative="GPT-7", personal_impact=85),
 ]
 
-# Full 34-Event Polymarket Tracking Registry (incorporating all requested links)
 POLYMARKET_EVENTS = [
     # Google Gemini Models & Intervals
     ("gemini-4pt0-released-by-june-30-2026", "Google", "Gemini 4.0 Flash"),
@@ -259,8 +272,6 @@ POLYMARKET_EVENTS = [
     ("next-google-gemini-pro-model-arena-debut", "Benchmarks", "Gemini Pro Arena Debut Score"),
 
     # Anthropic Claude Models
-    ("next-claude-sonnet-released-onptptpt-20260921225443", "Anthropic", "Next Claude Sonnet Daily Date"),
-    ("next-claude-sonnet-released-byptptpt-20260701203831153", "Anthropic", "Next Claude Sonnet Cumulative"),
     ("next-claude-haiku-released-byptptpt-20260701205353326", "Anthropic", "Next Claude Haiku"),
     ("next-fable-model-5pt2-released-byptptpt", "Anthropic", "Next Fable 5.2+"),
     ("next-claude-opus-released-byptptpt-20260923144500000", "Anthropic", "Next Claude Opus"),
@@ -299,6 +310,11 @@ POLYMARKET_EVENTS = [
 ]
 
 MANUAL_AS_OF = "2026-09-28"
+MILESTONES = [
+    ("Weakly General AI (Metaculus #3479)", datetime(2027, 2, 1, tzinfo=timezone.utc)),
+    ("Full AGI (Metaculus #5121)", datetime(2028, 5, 1, tzinfo=timezone.utc)),
+    ("ASI Benchmark (Consensus Median)", datetime(2030, 10, 1, tzinfo=timezone.utc)),
+]
 
 GEOPOLITICS_TRANSMISSION = [
     {
@@ -306,43 +322,43 @@ GEOPOLITICS_TRANSMISSION = [
         "outcome": "National Rally / Bardella Victory",
         "prob": 46.0,
         "effect": -24,
-        "transmission": "EU institutional friction, EUR weakness vs USD, trade friction impacting Hungarian exports and currency stability."
+        "transmission": "EU institutional friction, EUR weakness vs USD, trade friction impacting Hungarian exports and currency stability.",
     },
     {
         "event": "French Presidential Election",
         "outcome": "Centrist / Pro-European Coalition",
         "prob": 38.0,
         "effect": 18,
-        "transmission": "Single market integrity preserved, defense procurement compounding, stable EU tech framework."
+        "transmission": "Single market integrity preserved, defense procurement compounding, stable EU tech framework.",
     },
     {
         "event": "French Presidential Election",
         "outcome": "New Popular Front (Left Coalition)",
         "prob": 16.0,
         "effect": -12,
-        "transmission": "Increased corporate wealth taxes on CAC 40 multinationals, regulatory caution on compute infrastructure."
+        "transmission": "Increased corporate wealth taxes on CAC 40 multinationals, regulatory caution on compute infrastructure.",
     },
     {
         "event": "US 2026 Midterms",
         "outcome": "Split Congress (Gridlock: GOP Senate / Dem House)",
         "prob": 52.0,
         "effect": 22,
-        "transmission": "Peak regulatory stability. No disruptive tax hikes or antitrust breakups, optimal for continuous VUAA ETF compounding."
+        "transmission": "Peak regulatory stability. No disruptive tax hikes or antitrust breakups, optimal for continuous VUAA ETF compounding.",
     },
     {
         "event": "US 2026 Midterms",
         "outcome": "Republican Unified Sweep",
         "prob": 32.0,
         "effect": 12,
-        "transmission": "Corporate tax reductions and deregulated compute buildouts offset by aggressive tariff pressure on European trade."
+        "transmission": "Corporate tax reductions and deregulated compute buildouts offset by aggressive tariff pressure on European trade.",
     },
     {
         "event": "US 2026 Midterms",
         "outcome": "Democratic Unified Sweep",
         "prob": 14.0,
         "effect": -8,
-        "transmission": "Aggressive frontier model liability frameworks and antitrust scrutiny on hyperscalers."
-    }
+        "transmission": "Aggressive frontier model liability frameworks and antitrust scrutiny on hyperscalers.",
+    },
 ]
 
 MILLENNIUM_CONSENSUS = [
@@ -352,7 +368,7 @@ MILLENNIUM_CONSENSUS = [
     {"problem": "Riemann Hypothesis", "solution_date": "2028-05-15", "prob": 58.0, "contender": "Ensemble Autonomous Reasoners", "impact": "Prime distribution structure and foundational mathematics"},
     {"problem": "Yang-Mills Existence & Mass Gap", "solution_date": "2028-11-30", "prob": 52.0, "contender": "Quantum Field Theory AI Engines", "impact": "Mathematical foundation of particle physics"},
     {"problem": "P versus NP Problem", "solution_date": "2030-04-10", "prob": 44.0, "contender": "Recursive ASI Systems", "impact": "Universal optimization and computational complexity limits"},
-    {"problem": "General Frontier Math (Erdos / Collatz)", "solution_date": "2026-12-10", "prob": 95.0, "contender": "Lean 4 Autoformalization Clusters", "impact": "Continuous automated peer-reviewed proof synthesis"}
+    {"problem": "General Frontier Math (Erdos / Collatz)", "solution_date": "2026-12-10", "prob": 95.0, "contender": "Lean 4 Autoformalization Clusters", "impact": "Continuous automated peer-reviewed proof synthesis"},
 ]
 
 A, P, N = "Achieved", "In Progress", "Pending"
@@ -409,7 +425,7 @@ ALAN = [
     ("Recursive Closed-Loop ASI Research & Iteration Engine", "Superintelligence", N, "2030-04"),
 ]
 
-# ---------------------------------------------------------------- Time helpers
+# ---------------------------------------------------------------- Time Helpers
 
 
 def now_utc():
@@ -437,7 +453,7 @@ def eta_text(target, now):
     return f"in {d}d {h}h" if d else f"in {h}h {m}m"
 
 
-# ---------------------------------------------------------------- HTML fragments
+# ---------------------------------------------------------------- HTML Components
 
 
 def clock_html(target, now=None, large=False):
@@ -480,7 +496,7 @@ def model_card_html(m, now):
     """
 
 
-# ---------------------------------------------------------------- Polymarket
+# ---------------------------------------------------------------- Polymarket Engine
 
 
 def get_api_key():
@@ -498,13 +514,11 @@ def _to_float(value, default=0.0):
 
 
 def _parse_yes_price(raw):
-    """outcomePrices is normally a JSON-encoded list like '["0.63","0.37"]' but may already be a list."""
     prices = json.loads(raw) if isinstance(raw, str) else raw
     return float(prices[0])
 
 
 def fetch_event(item):
-    """Fetch one Polymarket event. Returns None on failure so one bad slug never breaks the board."""
     slug, entity, label = item
     data = None
     for attempt in range(2):
@@ -514,7 +528,7 @@ def fetch_event(item):
                 data = res.json()
                 break
             if res.status_code < 500 and res.status_code != 429:
-                return None  # 404 and friends: retrying will not help
+                return None
         except (requests.RequestException, ValueError):
             pass
         if attempt == 0:
@@ -530,7 +544,7 @@ def fetch_event(item):
         try:
             yes = _parse_yes_price(m.get("outcomePrices"))
         except (TypeError, ValueError, IndexError):
-            continue  # no usable price: skip it instead of inventing a 50% quote
+            continue
         volume = _to_float(m.get("volumeNum") or m.get("volume"))
         inverted = "no release" in f"{question} {title}".lower()
         options.append({
@@ -547,22 +561,20 @@ def load_market():
     with ThreadPoolExecutor(max_workers=10) as ex:
         results = [r for r in ex.map(fetch_event, POLYMARKET_EVENTS) if r]
     if not results:
-        # Raising keeps a total outage out of the cache, so the next rerun retries immediately.
         raise RuntimeError("Polymarket returned no data")
     return results
 
 
-# ---------------------------------------------------------------- Market-to-date logic
+# ---------------------------------------------------------------- Date Estimation
 
 _YEAR_RE = re.compile(r"\b20\d{2}\b")
 _PREFIX_RE = re.compile(r"^(?:before|by)\s+")
 _DATE_FORMATS = ("%B %d %Y", "%b %d %Y", "%Y-%m-%d")
-_GRACE = timedelta(days=1)             # keep dates that passed within the last day
-_ROLLOVER = timedelta(days=120)        # a yearless date older than this means "next year"
+_GRACE = timedelta(days=1)
+_ROLLOVER = timedelta(days=120)
 
 
 def parse_option_date(text, now):
-    """'By October 15' or 'September 28' -> datetime at 16:00 UTC, or None if it is not a date."""
     txt = _PREFIX_RE.sub("", text.lower().replace(",", "").strip())
     if not txt:
         return None
@@ -577,15 +589,13 @@ def parse_option_date(text, now):
         if not has_year and parsed < now - _ROLLOVER:
             try:
                 parsed = parsed.replace(year=parsed.year + 1)
-            except ValueError:  # Feb 29 landing in a non-leap year
+            except ValueError:
                 return None
         return parsed
     return None
 
 
 def parse_discrete_date_market(options, now, min_volume=1000, min_peak=0.25):
-    """Daily contracts ('September 28', 'September 29', ...). Returns the modal date when the
-    book has enough volume and the peak carries at least `min_peak` probability."""
     if sum(o.get("volume", 0) for o in options) < min_volume:
         return None
     candidates = []
@@ -602,8 +612,6 @@ def parse_discrete_date_market(options, now, min_volume=1000, min_peak=0.25):
 
 
 def parse_cumulative_market(options, now, min_volume=1500):
-    """'Released by <date>' strikes -> the date the curve crosses 50%, by linear interpolation.
-    Needs enough volume to override the hand-calibrated date."""
     if sum(o.get("volume", 0) for o in options) < min_volume:
         return None
     pts = []
@@ -615,7 +623,6 @@ def parse_cumulative_market(options, now, min_volume=1500):
         return None
     pts.sort(key=lambda p: p[0])
 
-    # First live strike already at or above 50%: only trust it when it is imminent.
     if pts[0][1] >= 0.50:
         return pts[0][0] if (pts[0][0] - now).days <= 4 else None
 
@@ -626,7 +633,6 @@ def parse_cumulative_market(options, now, min_volume=1500):
 
 
 def _market_target(model, by_label, now):
-    """Discrete daily market first, then the cumulative curve. None means fall back to the registry date."""
     ev = by_label.get(model.get("poly_discrete") or "")
     if ev:
         t = parse_discrete_date_market(ev["options"], now)
@@ -652,14 +658,6 @@ def resolve_all_models(market, now):
         target = _market_target(m, by_label, now)
         if target:
             m["target"], m["source"] = target, "market"
-
-    # Pipeline order: Haiku 5.5 follows Sonnet 5.5.
-    sonnet_t = next((m["target"] for m in out if m["id"] == "claude_sonnet_55"), None)
-    if sonnet_t:
-        for m in out:
-            if m["id"] == "claude_haiku_55" and m["target"] <= sonnet_t:
-                m["target"] = sonnet_t + timedelta(days=HAIKU_LAG_DAYS)
-                m["source"] = "manual"
     return out
 
 
@@ -684,7 +682,7 @@ def show_market_table(by_label, label, title, top=8):
         st.caption("Feed unavailable.")
 
 
-# ---------------------------------------------------------------- Gemini brief
+# ---------------------------------------------------------------- Gemini Brief
 
 
 def build_summary_payload(events):
@@ -699,21 +697,18 @@ def _generation_config(model_name):
     if "flash" in model_name and "lite" not in model_name:
         try:
             cfg.thinking_config = types.ThinkingConfig(thinking_level="medium")
-        except Exception:  # older SDKs do not know thinking_level
+        except Exception:
             pass
     return cfg
 
 
 @st.cache_data(ttl=SUMMARY_TTL, show_spinner=False)
 def generate_summary(_payload, today_label):
-    """Try each candidate model in turn. `_payload` is underscore-prefixed so it is NOT part of the
-    cache key: order books wiggle every refresh, and keying on them would re-bill Gemini every 10
-    minutes instead of hourly. Raises on failure, so failures are never cached."""
     key = get_api_key()
     prompt = (
         f"Current Date: {today_label}. User is a Hungarian index investor aiming for FIRE via VUAA compounding and LEV. "
         "Review these live prediction-market order books. "
-        "Provide 4 concise sentences analyzing model release density, potential slippage, and capital compounding velocity. "
+        "Provide 4 concise sentences analyzing model release density, benchmark shifts, and capital compounding velocity. "
         "Use hard numbers only, note thin volume, no conversational preamble.\n" + _payload
     )
     errors = []
@@ -740,12 +735,10 @@ def load_summary(payload, today_label):
         return None, str(exc)
 
 
-# ---------------------------------------------------------------- Model helpers
+# ---------------------------------------------------------------- Financial & Curve Math
 
 
 def months_to_target(pv, pmt, annual_rate_pct, fv, max_months=1200):
-    """Months until pv, compounding monthly with contribution pmt, reaches fv.
-    Returns None when the target is unreachable or more than `max_months` away."""
     if pv >= fv:
         return 0
     if annual_rate_pct <= 0:
@@ -776,19 +769,20 @@ def build_density_series(peak, start_d, num_days, spread=2.8, weight=90.0):
     return [round(x / total * weight, 2) for x in raw]
 
 
-# ---------------------------------------------------------------- App Execution
+# ---------------------------------------------------------------- Application State
 
-NOW = now_utc()  # one clock reading per run, so every countdown on the page agrees
+NOW = now_utc()
 
 try:
     market = load_market()
     market_down = False
 except RuntimeError:
     market, market_down = [], True
+
 by_label = {e["label"]: e for e in market}
 models = resolve_all_models(market, NOW)
 upcoming = sorted((m for m in models if m["target"] > NOW), key=lambda m: m["target"])
-labeled = [e for e in market if e["entity"] in ("Google", "OpenAI", "Anthropic", "SpaceXAI", "Crown") and e["options"]]
+labeled = [e for e in market if e["entity"] in ("Google", "OpenAI", "Anthropic", "SpaceXAI", "Crown", "Benchmarks") and e["options"]]
 
 st.title("⏱️ Frontier Board")
 st.caption("Precision intelligence dashboard tracking frontier model releases, FIRE velocity, and Longevity Escape Velocity. Times shown in UTC and Budapest time.")
@@ -813,8 +807,21 @@ tab_board, tab_crown, tab_curves, tab_personal, tab_geo, tab_alan, tab_audit = s
     "🔍 Order Book Audit",
 ])
 
-# ---- Tab 1: Release Board
+# ---- Tab 1: Grok-Style Release Board
 with tab_board:
+    # Shipped Milestone Banner
+    for s_m in SHIPPED_MODELS:
+        render_html(f"""
+        <div class="shipped-banner">
+            <div>
+                <span class="badge badge-shipped">SHIPPED · {s_m['shipped_date']}</span> &nbsp;
+                <strong style="color:#f8fafc; font-size:1.05rem;">{html.escape(s_m['name'])}</strong> &nbsp;
+                <span style="color:#94a3b8; font-size:0.85rem;">{html.escape(s_m['notes'])}</span>
+            </div>
+            <span style="font-size:0.75rem; font-weight:700; color:#34d399;">LIVE IN PRODUCTION</span>
+        </div>
+        """)
+
     f1, f2 = st.columns([3, 2])
     lab_choice = f1.radio("Lab", ["All", *sorted({m["lab"] for m in MODELS})],
                           horizontal=True, label_visibility="collapsed")
@@ -892,8 +899,8 @@ with tab_crown:
 with tab_curves:
     st.subheader("Comparative Release Density")
     st.caption(
-        f"Stylized view, not raw market data: a bell curve around each model's target date over the next "
-        f"{PLOT_HORIZON_DAYS} days, weighted toward Tue to Thu release days."
+        f"Stylized view around each model's target date over the next {PLOT_HORIZON_DAYS} days, "
+        "weighted toward Tue to Thu release clusters."
     )
 
     start_d = NOW.date()
@@ -947,7 +954,6 @@ with tab_curves:
     else:
         st.warning("No market feeds loaded.")
 
-    # Filled at the very end of the script, so a slow Gemini call never blocks the other tabs.
     brief_slot = st.container()
 
 
@@ -984,7 +990,7 @@ with tab_personal:
 
     st.divider()
     st.subheader("Longevity Escape Velocity (LEV) & Biological Horizon")
-    st.caption("Personalized timeline mapping status-quo biological senescence against AI-accelerated LEV crossover. Scenario assumptions, not forecasts.")
+    st.caption("Personalized timeline mapping status-quo biological senescence against AI-accelerated LEV crossover.")
 
     status_quo_death = BIRTH_DATE + timedelta(days=int(LIFE_EXPECTANCY_YEARS * 365.25))
 
@@ -1110,7 +1116,7 @@ if st.button("Force Synchronized Market Recalculation"):
     st.cache_data.clear()
     st.rerun()
 
-# ---- Executive brief (rendered last, into the slot reserved in the Probability Waves tab)
+# ---- Executive brief
 if labeled:
     with brief_slot:
         with st.spinner("Generating executive brief..."):
