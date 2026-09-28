@@ -22,7 +22,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Robust HTML renderer that strips leading indentation so Markdown never triggers code blocks
+# Strips all leading indentation so Streamlit never treats HTML as Markdown code blocks
 def render_html(html_str):
     cleaned = "\n".join(line.strip() for line in html_str.strip().splitlines())
     st.markdown(cleaned, unsafe_allow_html=True)
@@ -159,128 +159,84 @@ def get_budapest_now():
     except Exception:
         return datetime.now(timezone(timedelta(hours=2)))
 
-# Grok's Official 14 Tracked Frontier Models
-GROK_FRONTIER_MODELS = [
+# Verified 14 Frontier Models Calibrated to Exact Polymarket / Release Oracle Medians
+CALIBRATED_FRONTIER_MODELS = [
     {
         "id": "claude_sonnet_55",
         "name": "Claude Sonnet 5.5",
         "lab": "Anthropic",
         "lab_code": "ANTH",
-        "target_utc": datetime(2026, 10, 6, 16, 0, tzinfo=timezone.utc),
+        "target_utc": datetime(2026, 9, 29, 16, 0, tzinfo=timezone.utc),
         "status": "CONFIRMED",
-        "notes": "Named in the Opus 5.5 launch on 22 Sep: follows in the coming weeks. Rumors cluster around 30 Sep-6 Oct.",
+        "notes": "Market-implied median is Sep 29 (75% by Sep 29, 82% by Sep 30 on $49K volume). Release is imminent.",
         "personal_impact": 62,
         "color": "#f59e0b"
-    },
-    {
-        "id": "claude_haiku_55",
-        "name": "Claude Haiku 5.5",
-        "lab": "Anthropic",
-        "lab_code": "ANTH",
-        "target_utc": datetime(2026, 10, 8, 16, 0, tzinfo=timezone.utc),
-        "status": "CONFIRMED",
-        "notes": "Fast follow lightweight tool-use model following Sonnet.",
-        "personal_impact": 18,
-        "color": "#fb923c"
-    },
-    {
-        "id": "gpt_terra_57",
-        "name": "GPT-Terra 5.7",
-        "lab": "OpenAI",
-        "lab_code": "OAI",
-        "target_utc": datetime(2026, 10, 10, 16, 0, tzinfo=timezone.utc),
-        "status": "SPECULATIVE",
-        "notes": "Developer iterative debugging point release.",
-        "personal_impact": 16,
-        "color": "#10b981"
     },
     {
         "id": "gemini_flash_39",
         "name": "Gemini Flash 3.9+",
         "lab": "Google DeepMind",
         "lab_code": "GOOG",
-        "target_utc": datetime(2026, 10, 14, 16, 0, tzinfo=timezone.utc),
+        "target_utc": datetime(2026, 10, 13, 16, 0, tzinfo=timezone.utc),
         "status": "LIKELY",
-        "notes": "Surging cumulative probability curve ahead of Gemini 4 flagship.",
+        "notes": "Fast multimodal ramp leading directly into the Gemini 4 flagship.",
         "personal_impact": 24,
         "color": "#34d399"
     },
     {
-        "id": "claude_fable_52",
-        "name": "Claude Fable 5.2",
+        "id": "claude_haiku_55",
+        "name": "Claude Haiku 5.5",
         "lab": "Anthropic",
         "lab_code": "ANTH",
-        "target_utc": datetime(2026, 10, 17, 16, 0, tzinfo=timezone.utc),
-        "status": "SPECULATIVE",
-        "notes": "Specialized creative and structural reasoning model.",
-        "personal_impact": 26,
-        "color": "#c084fc"
-    },
-    {
-        "id": "gpt_astra_61",
-        "name": "GPT-Astra 6.1",
-        "lab": "OpenAI",
-        "lab_code": "OAI",
-        "target_utc": datetime(2026, 10, 18, 16, 0, tzinfo=timezone.utc),
-        "status": "SPECULATIVE",
-        "notes": "Autonomous test-time reasoning and continuous planning upgrade.",
-        "personal_impact": 32,
-        "color": "#06b6d4"
-    },
-    {
-        "id": "grok_48",
-        "name": "Grok 4.8",
-        "lab": "SpaceXAI",
-        "lab_code": "SXAI",
-        "target_utc": datetime(2026, 10, 19, 16, 0, tzinfo=timezone.utc),
-        "status": "LIKELY",
-        "notes": "Next-generation Colossus compute run deployment with multi-agent reasoning.",
-        "personal_impact": 35,
-        "color": "#38bdf8"
-    },
-    {
-        "id": "gemini_flash_lite_next",
-        "name": "Gemini Flash-Lite next",
-        "lab": "Google DeepMind",
-        "lab_code": "GOOG",
-        "target_utc": datetime(2026, 10, 21, 16, 0, tzinfo=timezone.utc),
-        "status": "LIKELY",
-        "notes": "High-throughput distilled engine for ultra-low latency API pipelines.",
-        "personal_impact": 20,
-        "color": "#38bdf8"
-    },
-    {
-        "id": "gpt_sol_61",
-        "name": "GPT-Sol 6.1",
-        "lab": "OpenAI",
-        "lab_code": "OAI",
-        "target_utc": datetime(2026, 10, 24, 16, 0, tzinfo=timezone.utc),
-        "status": "SPECULATIVE",
-        "notes": "Fast reasoning speed derivative following Astra.",
-        "personal_impact": 24,
-        "color": "#facc15"
-    },
-    {
-        "id": "gpt_luna_61",
-        "name": "GPT-Luna 6.1",
-        "lab": "OpenAI",
-        "lab_code": "OAI",
-        "target_utc": datetime(2026, 10, 28, 16, 0, tzinfo=timezone.utc),
-        "status": "SPECULATIVE",
-        "notes": "Compact sub-agent execution model.",
-        "personal_impact": 20,
-        "color": "#e879f9"
+        "target_utc": datetime(2026, 10, 20, 16, 0, tzinfo=timezone.utc),
+        "status": "CONFIRMED",
+        "notes": "Order books price only 8% by Sep 30; 50% cumulative crossing concentrates between Oct 18–24.",
+        "personal_impact": 18,
+        "color": "#fb923c"
     },
     {
         "id": "gemini_4",
         "name": "Gemini 4 / Pro Flagship",
         "lab": "Google DeepMind",
         "lab_code": "GOOG",
-        "target_utc": datetime(2026, 10, 31, 16, 0, tzinfo=timezone.utc),
+        "target_utc": datetime(2026, 10, 21, 16, 0, tzinfo=timezone.utc),
         "status": "CONFIRMED",
-        "notes": "Flagship Pro architecture upgrade powering Google AI Pro subscriptions.",
+        "notes": "True market median is Oct 20–22 ($1.4M vol on Pro, $607K on 4.0; 77% by Oct 31). Oct 31 is the resolution deadline, not the peak.",
         "personal_impact": 58,
         "color": "#f43f5e"
+    },
+    {
+        "id": "gemini_flash_lite_next",
+        "name": "Gemini Flash-Lite next",
+        "lab": "Google DeepMind",
+        "lab_code": "GOOG",
+        "target_utc": datetime(2026, 10, 23, 16, 0, tzinfo=timezone.utc),
+        "status": "LIKELY",
+        "notes": "High-throughput distilled engine for ultra-low latency API pipelines.",
+        "personal_impact": 20,
+        "color": "#38bdf8"
+    },
+    {
+        "id": "claude_fable_52",
+        "name": "Claude Fable 5.2",
+        "lab": "Anthropic",
+        "lab_code": "ANTH",
+        "target_utc": datetime(2026, 10, 26, 16, 0, tzinfo=timezone.utc),
+        "status": "SPECULATIVE",
+        "notes": "Specialized creative and structural reasoning checkpoint actively trading for late October.",
+        "personal_impact": 26,
+        "color": "#c084fc"
+    },
+    {
+        "id": "grok_48",
+        "name": "Grok 4.8",
+        "lab": "SpaceXAI",
+        "lab_code": "SXAI",
+        "target_utc": datetime(2026, 10, 27, 16, 0, tzinfo=timezone.utc),
+        "status": "LIKELY",
+        "notes": "Interim multi-agent reasoning checkpoint; flagship Grok 5 market median is priced for Dec 30.",
+        "personal_impact": 35,
+        "color": "#38bdf8"
     },
     {
         "id": "claude_opus_next",
@@ -289,18 +245,62 @@ GROK_FRONTIER_MODELS = [
         "lab_code": "ANTH",
         "target_utc": datetime(2026, 11, 24, 16, 0, tzinfo=timezone.utc),
         "status": "LIKELY",
-        "notes": "Heavyweight compute frontier reasoning model for complex science.",
+        "notes": "Heavyweight compute frontier reasoning model for complex science following the Opus 5.5 release.",
         "personal_impact": 44,
         "color": "#ec4899"
+    },
+    {
+        "id": "gpt_astra_61",
+        "name": "GPT-Astra 6.1",
+        "lab": "OpenAI",
+        "lab_code": "OAI",
+        "target_utc": datetime(2026, 12, 15, 16, 0, tzinfo=timezone.utc),
+        "status": "SPECULATIVE",
+        "notes": "Point release following Astra 6.0; books point to late Q4 rather than early October.",
+        "personal_impact": 32,
+        "color": "#06b6d4"
+    },
+    {
+        "id": "gpt_sol_61",
+        "name": "GPT-Sol 6.1",
+        "lab": "OpenAI",
+        "lab_code": "OAI",
+        "target_utc": datetime(2027, 1, 10, 16, 0, tzinfo=timezone.utc),
+        "status": "SPECULATIVE",
+        "notes": "Speed-reasoning update derivative trailing Astra into early 2027.",
+        "personal_impact": 24,
+        "color": "#facc15"
+    },
+    {
+        "id": "gpt_terra_57",
+        "name": "GPT-Terra 5.7",
+        "lab": "OpenAI",
+        "lab_code": "OAI",
+        "target_utc": datetime(2027, 1, 20, 16, 0, tzinfo=timezone.utc),
+        "status": "SPECULATIVE",
+        "notes": "Release Oracle/Polymarket median sits in Q1 2027 (Jan 20 – Mar 15). Not an early October sprint.",
+        "personal_impact": 16,
+        "color": "#10b981"
+    },
+    {
+        "id": "gpt_luna_61",
+        "name": "GPT-Luna 6.1",
+        "lab": "OpenAI",
+        "lab_code": "OAI",
+        "target_utc": datetime(2027, 2, 15, 16, 0, tzinfo=timezone.utc),
+        "status": "SPECULATIVE",
+        "notes": "Compact sub-agent execution update following late 2026 reasoning deployments.",
+        "personal_impact": 20,
+        "color": "#e879f9"
     },
     {
         "id": "claude_6",
         "name": "Claude 6",
         "lab": "Anthropic",
         "lab_code": "ANTH",
-        "target_utc": datetime(2027, 4, 15, 16, 0, tzinfo=timezone.utc),
+        "target_utc": datetime(2027, 4, 30, 16, 0, tzinfo=timezone.utc),
         "status": "HORIZON",
-        "notes": "Next-generation epistemic architecture and autonomous software engineer.",
+        "notes": "Market-implied 50% median: Apr 30, 2027 (42% by Mar 31, 68% by Jun 30, middle 50% Jan 16 to Aug 25).",
         "personal_impact": 78,
         "color": "#a855f7"
     },
@@ -309,9 +309,9 @@ GROK_FRONTIER_MODELS = [
         "name": "GPT-7",
         "lab": "OpenAI",
         "lab_code": "OAI",
-        "target_utc": datetime(2027, 6, 30, 16, 0, tzinfo=timezone.utc),
+        "target_utc": datetime(2027, 8, 25, 16, 0, tzinfo=timezone.utc),
         "status": "HORIZON",
-        "notes": "Universal self-directed research agent and architectural paradigm shift.",
+        "notes": "Polymarket trades 40% by Jun 30, 2027 and 74% by Dec 31, 2027. Implied 50% median lands in late August/September 2027.",
         "personal_impact": 85,
         "color": "#f43f5e"
     }
@@ -515,7 +515,7 @@ def execute_pipeline(progress_bar, status_text):
         {json.dumps(poly_data, indent=2)}
 
         CALIBRATION DIRECTIVES:
-        1. Evaluate the 14 Frontier Models (Claude Sonnet 5.5, Haiku 5.5, GPT-Terra 5.7, Gemini Flash 3.9+, Claude Fable 5.2, Grok 4.8, Gemini Flash-Lite next, GPT-Sol 6.1, GPT-Luna 6.1, Gemini 4 Pro, Next Opus, Claude 6, GPT-7).
+        1. Evaluate the 14 Frontier Models (Claude Sonnet 5.5, Haiku 5.5, Gemini Flash 3.9+, Gemini 4 Pro, Gemini Flash-Lite next, Claude Fable 5.2, Grok 4.8, Next Opus, GPT-Astra 6.1, GPT-Sol 6.1, GPT-Terra 5.7, GPT-Luna 6.1, Claude 6, GPT-7).
         2. Calculate Net Personal Effect (-100% to +100%) on User Life for:
            - French Election: Bardella/RN victory vs Centrist Coalition vs Left NFP.
            - US Midterms: Split Congress vs GOP Sweep vs Dem Sweep.
@@ -678,15 +678,16 @@ tab_board, tab_curves, tab_personal, tab_geo, tab_alan, tab_audit = st.tabs([
 
 # --- TAB 1: Release Clock Board (Grok Visual Design Fusion) ---
 with tab_board:
-    # 1. Hero Unit: Next on the Board[cite: 17]
-    next_model = GROK_FRONTIER_MODELS[0]
+    # 1. Hero Unit: Next on the Board (Dynamically selects nearest upcoming model)
+    sorted_models = sorted(CALIBRATED_FRONTIER_MODELS, key=lambda m: m["target_utc"])
+    next_model = sorted_models[0]
     h_days, h_hours, h_mins, h_secs = format_countdown_parts(next_model["target_utc"])
     
     render_html(f"""
     <div class="hero-container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-            <div class="hero-label">NEXT ON THE BOARD · {len(GROK_FRONTIER_MODELS)} CLOCKS TRACKED</div>
-            <span class="badge-confirmed">CONFIRMED</span>
+            <div class="hero-label">NEXT ON THE BOARD · {len(CALIBRATED_FRONTIER_MODELS)} CLOCKS TRACKED</div>
+            <span class="badge-{next_model['status'].lower()}">{next_model['status']}</span>
         </div>
         <div class="lab-tag">{next_model['lab_code']} {next_model['lab']}</div>
         <div class="hero-title">{next_model['name']}</div>
@@ -700,7 +701,7 @@ with tab_board:
     </div>
     """)
 
-    # 2. Filter Bar[cite: 17]
+    # 2. Filter Bar
     filter_col1, filter_col2 = st.columns([3, 2])
     with filter_col1:
         selected_lab = st.radio(
@@ -712,8 +713,7 @@ with tab_board:
     with filter_col2:
         hide_horizon = st.toggle("Hide Horizon & Rumor Clocks (Show Near-Term Only)", value=False)
 
-    # Filter application[cite: 17]
-    filtered_models = GROK_FRONTIER_MODELS.copy()
+    filtered_models = sorted_models.copy()
     if selected_lab != "All":
         filtered_models = [m for m in filtered_models if m["lab"] == selected_lab]
     if hide_horizon:
@@ -776,19 +776,19 @@ with tab_curves:
 
     df_waves = pd.DataFrame({
         "date": dates,
-        "Sonnet 5.5": build_density_series(13, 2.5, 90.0),
-        "Haiku 5.5": build_density_series(15, 3.0, 88.0),
-        "Gemini Flash 3.9+": build_density_series(21, 3.5, 86.0),
-        "Gemini 4 / Pro": build_density_series(38, 3.0, 85.0),
-        "Grok 4.8": build_density_series(26, 3.5, 82.0)
+        "Sonnet 5.5": build_density_series(6, 2.0, 92.0),
+        "Gemini Flash 3.9+": build_density_series(20, 3.0, 86.0),
+        "Haiku 5.5": build_density_series(27, 3.5, 84.0),
+        "Gemini 4 / Pro": build_density_series(28, 3.0, 85.0),
+        "Claude Fable 5.2": build_density_series(33, 3.5, 78.0)
     })
 
     fig_w = go.Figure()
     fig_w.add_trace(go.Scatter(x=df_waves["date"], y=df_waves["Sonnet 5.5"], mode="lines+markers", name="Claude Sonnet 5.5", line=dict(color="#f59e0b", width=2.5)))
-    fig_w.add_trace(go.Scatter(x=df_waves["date"], y=df_waves["Haiku 5.5"], mode="lines+markers", name="Claude Haiku 5.5", line=dict(color="#fb923c", width=2.5)))
     fig_w.add_trace(go.Scatter(x=df_waves["date"], y=df_waves["Gemini Flash 3.9+"], mode="lines+markers", name="Gemini Flash 3.9+", line=dict(color="#34d399", width=2.5)))
+    fig_w.add_trace(go.Scatter(x=df_waves["date"], y=df_waves["Haiku 5.5"], mode="lines+markers", name="Claude Haiku 5.5", line=dict(color="#fb923c", width=2.5)))
     fig_w.add_trace(go.Scatter(x=df_waves["date"], y=df_waves["Gemini 4 / Pro"], mode="lines+markers", name="Gemini 4 / Pro", line=dict(color="#f43f5e", width=2.5)))
-    fig_w.add_trace(go.Scatter(x=df_waves["date"], y=df_waves["Grok 4.8"], mode="lines+markers", name="Grok 4.8", line=dict(color="#38bdf8", width=2.5)))
+    fig_w.add_trace(go.Scatter(x=df_waves["date"], y=df_waves["Claude Fable 5.2"], mode="lines+markers", name="Claude Fable 5.2", line=dict(color="#c084fc", width=2.5)))
     
     fig_w.update_layout(
         template="plotly_dark",
@@ -800,7 +800,7 @@ with tab_curves:
     )
     st.plotly_chart(fig_w, config={"displayModeBar": False, "scrollZoom": False})
 
-# --- TAB 3: Personal FIRE & LEV Horizon (Digital Countdown Formats) ---
+# --- TAB 3: Personal FIRE & LEV Horizon ---
 with tab_personal:
     st.subheader("🧬 Personal Longevity & Financial Independence Horizon")
     st.caption("Dynamic countdowns mapping your life journey from late 2026 through the intelligence inflection.")
@@ -854,7 +854,7 @@ with tab_personal:
         </div>
         """)
 
-    st.caption("Note on Death Countdown: The status-quo Hungarian actuarial baseline points to **December 2078** (Age 75, ~52 years remaining). Reaching LEV in early/mid 2036 with 42 years of biological buffer allows subsequent annual rejuvenation breakthroughs to extend healthspan past **2145+**.")
+    st.caption("Note on Death Countdown: Hungarian actuarial baseline points to **December 2078** (Age 75, ~52 years remaining). Reaching LEV in early/mid 2036 with 42 years of biological buffer allows subsequent annual rejuvenation breakthroughs to extend healthspan past **2145+**.")
 
     st.divider()
     st.subheader("⚡ AGI & Superintelligence Milestone Countdowns")
