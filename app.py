@@ -302,23 +302,29 @@ def call_gemini_worker(client, model_name, prompt):
     except Exception:
         config = types.GenerateContentConfig(response_mime_type="application/json")
         
+    http_opts = types.HttpOptions(timeout=65000)
     resp = client.models.generate_content(
         model=model_name,
         contents=prompt,
-        config=config
+        config=config,
+        http_options=http_opts
     )
     if resp and resp.text:
         return resp.text
     return None
 
 def execute_gemini_guaranteed(client, prompt):
-    candidate_models = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+    candidate_specs = [
+        ("gemini-3.8-flash", 60.0),
+        ("gemini-3.6-flash", 25.0),
+        ("gemini-3.5-flash-lite", 15.0)
+    ]
     
-    for m in candidate_models:
+    for m, timeout_val in candidate_specs:
         try:
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(call_gemini_worker, client, m, prompt)
-                result_text = future.result(timeout=18.0)
+                result_text = future.result(timeout=timeout_val)
                 if result_text:
                     return result_text, f"{m} (Medium Thinking · Google AI Studio)"
         except TimeoutError:
@@ -375,7 +381,7 @@ def execute_pipeline(progress_bar, status_text):
         progress_bar.progress(int(ratio * 35))
     poly_data = fetch_all_polymarket_parallel(update_poly_progress)
 
-    status_text.markdown("🧠 **[2/5] Synthesizing order books with Gemini 3.8 Flash (Medium Thinking)...**")
+    status_text.markdown("🧠 **[2/5] Synthesizing order books with Gemini 3.8 Flash (Medium Thinking, allowing up to 60s)...**")
     progress_bar.progress(50)
 
     result = None
@@ -405,7 +411,7 @@ def execute_pipeline(progress_bar, status_text):
         6. Millennium Prize & Frontier Math: Most probable calendar date that a credible solution is publicly published for:
            Navier-Stokes, Hodge Conjecture, Birch and Swinnerton-Dyer, Riemann Hypothesis, Yang-Mills, P vs NP, and General Frontier Math.
 
-        Return ONLY raw valid JSON matching this schema:
+        Return ONLY raw valid JSON matching this schema, without backticks or markdown:
         {{
           "executive_metrics": {{
             "fire_deflation_score": 86,
