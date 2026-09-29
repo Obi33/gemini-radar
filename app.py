@@ -66,6 +66,7 @@ WEEKDAY_RELEASE_WEIGHT = {0: 0.75, 1: 1.0, 2: 1.0, 3: 1.0, 4: 0.6, 5: 0.15, 6: 0
 
 
 def render_html(s):
+    """Render an HTML snippet with stripped whitespace to avoid markdown parsing bugs."""
     cleaned = "\n".join(line.strip() for line in s.splitlines() if line.strip())
     st.markdown(cleaned, unsafe_allow_html=True)
 
@@ -132,7 +133,7 @@ render_html("""
     border: 1px solid #059669;
     border-radius: 0.75rem;
     padding: 0.75rem 1rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.85rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -191,21 +192,28 @@ def M(id_str, name, lab, code, dt, status, notes, poly_cumulative=None, poly_dis
     }
 
 
-# Recently Shipped Ledger
+# Live Production Ledger (Shipped Models)
 SHIPPED_MODELS = [
+    {
+        "name": "GPT-Sol 6.1 (GPT-6.1 Sol)",
+        "lab": "OpenAI",
+        "code": "OAI",
+        "shipped_date": "29 Sep 2026",
+        "notes": "Officially unveiled. Matches GPT-6 Astra on agentic coding and professional tasks at 1/5th cost ($2/$10 per 1M tokens) with up to 8x faster generation in Codex.",
+    },
     {
         "name": "Claude Sonnet 5.5",
         "lab": "Anthropic",
         "code": "ANTH",
         "shipped_date": "28 Sep 2026",
-        "notes": "Officially launched on 28 Sep 2026. Flagship reasoning, coding, and autonomous tool use deployment.",
-    }
+        "notes": "Officially launched on 28 Sep 2026. State-of-the-art coding, computer use, and tool orchestration.",
+    },
 ]
 
-# Active Upcoming Models (Sonnet 5.5 graduated out of countdowns)
+# Active Upcoming Models
 MODELS = [
     M("claude_haiku_55", "Claude Haiku 5.5", "Anthropic", "ANTH", (2026, 10, 8), "CONFIRMED",
-      "78% by Oct 15, 95% by Oct 31 ($11.7K vol). Anthropic confirmed Haiku directly follows Sonnet 5.5.",
+      "78% by Oct 15, 95% by Oct 31 ($11.7K vol). Anthropic confirmed Haiku directly follows Sonnet 5.5 in coming weeks.",
       poly_cumulative="Next Claude Haiku", personal_impact=18),
 
     M("gemini_flash_39", "Gemini Flash 3.9+", "Google DeepMind", "GOOG", (2026, 10, 13), "LIKELY",
@@ -231,10 +239,6 @@ MODELS = [
     M("gemini_flash_lite_next", "Gemini Flash-Lite next", "Google DeepMind", "GOOG", (2026, 10, 21), "LIKELY",
       "Distilled lightweight engine calibrated to launch alongside the Gemini 4 family. Polymarket $56 book is illiquid.",
       poly_cumulative="Gemini Flash-Lite 3.6+", personal_impact=20),
-
-    M("gpt_sol_61", "GPT-Sol 6.1", "OpenAI", "OAI", (2026, 10, 24), "SPECULATIVE",
-      "Sol 6.0 deployed Sep 22. Speed-reasoning derivative trailing Astra.",
-      poly_cumulative="GPT-Sol 6.1", personal_impact=24),
 
     M("gpt_luna_61", "GPT-Luna 6.1", "OpenAI", "OAI", (2026, 10, 28), "SPECULATIVE",
       "48% by Nov 30, 80% by Dec 31 on $1K vol. Compact sub-agent execution model.",
@@ -285,7 +289,6 @@ POLYMARKET_EVENTS = [
     # OpenAI Models
     ("next-openai-gpt-terra-5pt7-released-byptptpt", "OpenAI", "GPT-Terra 5.7"),
     ("gpt-astra-6pt1-released-byptptpt", "OpenAI", "GPT-Astra 6.1"),
-    ("next-gpt-sol-6pt1-released-byptptpt", "OpenAI", "GPT-Sol 6.1"),
     ("next-gpt-luna-6pt1-released-byptptpt", "OpenAI", "GPT-Luna 6.1"),
     ("gpt-7-released-byptptpt", "OpenAI", "GPT-7"),
     ("highest-openai-score-on-humanitys-last-exam-in-2026-20260723225144062", "Benchmarks", "Highest OpenAI HLE Score 2026"),
@@ -309,7 +312,7 @@ POLYMARKET_EVENTS = [
     ("which-millennium-prize-problem-will-ai-solve-next", "Math", "Which Millennium Problem Next"),
 ]
 
-MANUAL_AS_OF = "2026-09-28"
+MANUAL_AS_OF = "2026-09-29"
 MILESTONES = [
     ("Weakly General AI (Metaculus #3479)", datetime(2027, 2, 1, tzinfo=timezone.utc)),
     ("Full AGI (Metaculus #5121)", datetime(2028, 5, 1, tzinfo=timezone.utc)),
@@ -809,7 +812,7 @@ tab_board, tab_crown, tab_curves, tab_personal, tab_geo, tab_alan, tab_audit = s
 
 # ---- Tab 1: Grok-Style Release Board
 with tab_board:
-    # Shipped Milestone Banner
+    # Shipped Milestones Banner (Sonnet 5.5 and GPT-Sol 6.1)
     for s_m in SHIPPED_MODELS:
         render_html(f"""
         <div class="shipped-banner">
@@ -990,7 +993,7 @@ with tab_personal:
 
     st.divider()
     st.subheader("Longevity Escape Velocity (LEV) & Biological Horizon")
-    st.caption("Personalized timeline mapping status-quo biological senescence against AI-accelerated LEV crossover.")
+    st.caption("Personalized timeline mapping status-quo biological senescence against AI-accelerated LEV crossover. Scenario assumptions, not forecasts.")
 
     status_quo_death = BIRTH_DATE + timedelta(days=int(LIFE_EXPECTANCY_YEARS * 365.25))
 
@@ -1116,7 +1119,7 @@ if st.button("Force Synchronized Market Recalculation"):
     st.cache_data.clear()
     st.rerun()
 
-# ---- Executive brief
+# ---- Executive brief (rendered last, into the slot reserved in the Probability Waves tab)
 if labeled:
     with brief_slot:
         with st.spinner("Generating executive brief..."):
